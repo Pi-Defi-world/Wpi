@@ -33,6 +33,18 @@ Set backend env:
 - `WPI_CONTRACT_ID` / `MOCK_USDC_CONTRACT_ID` — deployed contract IDs
 - `BRIDGE_STELLAR_ADMIN_SECRET_KEY` — admin key that mints wPi (keep offline in production)
 
+
+## Quickstart: full testnet flow
+
+Run the scripted walkthrough to build and exercise the complete testnet path:
+
+```bash
+cd Stellar-contracts-v1
+./scripts/quickstart.sh
+```
+
+The script creates/funds fresh Stellar testnet identities when needed, deploys `wpi-token`, `mock-usdc`, and `mock-amm`, then runs initialize → mint → approve → transfer → liquidity deposit → swap with expected output notes after each command.
+
 ## DEX / AMM
 
 Pool creation against Soroswap or another Stellar AMM is **not** included here; seed liquidity off-chain after deploying both tokens.
