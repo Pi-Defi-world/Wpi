@@ -1,0 +1,12 @@
+[package]
+name = "soroban-token-common"
+version = "0.1.0"
+edition = "2021"
+description = "Shared admin/balance/allowance/pause scaffolding for Soroban tokens."
+publish = false
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+soroban-sdk = { version = "=23.0.1" }
