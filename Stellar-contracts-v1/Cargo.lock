@@ -818,6 +818,7 @@ name = "mock-usdc"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+ "soroban-token-common",
 ]
 
 [[package]]
@@ -1376,6 +1377,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-token-common"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soroban-wasmi"
 version = "0.31.1-soroban.20.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1694,6 +1702,7 @@ name = "wpi-token"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+ "soroban-token-common",
 ]
 
 [[package]]
