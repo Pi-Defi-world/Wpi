@@ -10,7 +10,7 @@ Soroban contracts and operational docs for the **wrapped Pi (wPi)** bridge token
 | [`docs/proof-of-reserve.md`](./docs/proof-of-reserve.md) | Off-chain signed reserve attestation process |
 | [`docs/design/on-chain-reserve-oracle.md`](./docs/design/on-chain-reserve-oracle.md) | Medium-term on-chain oracle + mint invariant design |
 | [`scripts/por/`](./scripts/por/) | Attest / verify CLI (Node.js, no dependencies) |
-| [`attestations/`](./attestations/) | Public PoR feed (`latest.json`, schema, attestor pubkey) |
+| [`attestations/`](./attestations/) | PoR feed (`latest.json` is **demo** until production cadence; schema + attestor pubkey) |
 
 ## Quick start (contracts)
 

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "issued_at": "2026-07-17T15:49:36.620Z",
+  "issued_at": "2026-07-17T16:02:46.903Z",
   "network": "testnet",
   "wpi_contract_id": "CDUMMYWPIRESERVEATTESTATIONPLACEHOLDER000000000000000000",
   "wpi_total_supply": "1000000000000",
@@ -10,8 +10,8 @@
   "safety_margin_bps": 0,
   "collateral_ratio": "1.00000000",
   "status": "healthy",
-  "attestor_public_key": "03254a056f4ac1c634fbae6dfeb393b468d8d05758b07260311334316eec89bb",
-  "signature": "97c7d8f4f9217a9852ddcd993d080549fd22ea8466f8e0bb9c59e8f9fc608f1b5cdcd8f8a3377a4e18879e872def127e331bbe100424bd41fdac2f94a490bb04",
+  "attestor_public_key": "082bacb376530abcae786d5a38a03366f85bcca6bfaab992b8c1e6e94fbfa33d",
+  "signature": "f1404dc8ac707a207841c74f2b82e00c1e8e63615eb6282ac77cfa186f65a98dba9df4e3d47d2732500c705e53c778994aedb47bee58b84fab69c174532ac804",
   "signed_fields": [
     "schema_version",
     "issued_at",

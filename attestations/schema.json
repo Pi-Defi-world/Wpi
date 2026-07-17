@@ -40,8 +40,8 @@
     },
     "wpi_total_supply": {
       "type": "string",
-      "pattern": "^-?[0-9]+$",
-      "description": "On-chain total_supply in stroops (7 decimals)."
+      "pattern": "^[0-9]+$",
+      "description": "On-chain total_supply in stroops (7 decimals). Non-negative integer string only."
     },
     "pi_custody_account": {
       "type": "string",
@@ -49,8 +49,8 @@
     },
     "pi_custody_balance": {
       "type": "string",
-      "pattern": "^-?[0-9]+$",
-      "description": "Reported Pi custody balance in stroops (7 decimals)."
+      "pattern": "^[0-9]+$",
+      "description": "Reported Pi custody balance in stroops (7 decimals). Non-negative integer string only."
     },
     "pi_balance_source": {
       "type": "string",
@@ -63,11 +63,12 @@
     },
     "collateral_ratio": {
       "type": "string",
-      "description": "pi_custody_balance / wpi_total_supply, or 'inf' if supply is 0."
+      "description": "pi_custody_balance / wpi_total_supply (display; recompute on verify), or 'inf' if supply is 0."
     },
     "status": {
       "type": "string",
-      "enum": ["healthy", "under_collateralized", "unknown"]
+      "enum": ["healthy", "under_collateralized"],
+      "description": "Derived status. Negative quantities are rejected rather than reported as unknown."
     },
     "attestor_public_key": {
       "type": "string",
@@ -81,8 +82,21 @@
     },
     "signed_fields": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Ordered list of field names included in the signed canonical JSON."
+      "description": "Immutable v1 ordered list of field names included in the signed canonical JSON.",
+      "minItems": 9,
+      "maxItems": 9,
+      "prefixItems": [
+        { "const": "schema_version" },
+        { "const": "issued_at" },
+        { "const": "network" },
+        { "const": "wpi_contract_id" },
+        { "const": "wpi_total_supply" },
+        { "const": "pi_custody_account" },
+        { "const": "pi_custody_balance" },
+        { "const": "pi_balance_source" },
+        { "const": "safety_margin_bps" }
+      ],
+      "items": false
     }
   },
   "additionalProperties": false

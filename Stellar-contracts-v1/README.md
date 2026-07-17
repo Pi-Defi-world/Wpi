@@ -46,7 +46,7 @@ wPi minting is admin/relayer-gated. Short-term **proof of reserve** is an off-ch
 | Process & ops | [`docs/proof-of-reserve.md`](../docs/proof-of-reserve.md) |
 | On-chain oracle design | [`docs/design/on-chain-reserve-oracle.md`](../docs/design/on-chain-reserve-oracle.md) |
 | Attestor CLI | `scripts/por/attest.mjs`, `scripts/por/verify.mjs` |
-| Public feed | [`attestations/latest.json`](../attestations/latest.json) |
+| Public feed | [`attestations/latest.json`](../attestations/latest.json) (demo until production cadence) |
 
 ```bash
 # From repo root

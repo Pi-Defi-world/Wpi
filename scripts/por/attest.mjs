@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
 
+/** Immutable v1 signed-field order — must match schema + verify.mjs */
 const SIGNED_FIELDS = [
   "schema_version",
   "issued_at",
@@ -35,6 +36,8 @@ const SIGNED_FIELDS = [
   "safety_margin_bps",
 ];
 
+const ALLOWED_NETWORKS = new Set(["testnet", "public"]);
+
 function usage() {
   console.log(`Usage:
   node scripts/por/attest.mjs keygen
@@ -46,12 +49,16 @@ Env for attest:
   STELLAR_SOROBAN_RPC_URL   Soroban RPC URL
   STELLAR_NETWORK           testnet|public (default testnet)
   PI_CUSTODY_ACCOUNT        custody account id
-  PI_CUSTODY_BALANCE        stroops (optional if file set)
-  PI_CUSTODY_BALANCE_FILE   path to file with integer stroops
+  PI_CUSTODY_BALANCE        non-negative stroops (optional if file set)
+  PI_CUSTODY_BALANCE_FILE   path to file with non-negative integer stroops
   PI_BALANCE_SOURCE         label (default: env|file)
   SAFETY_MARGIN_BPS         default 0
-  POR_OUT                   default attestations/latest.json
-  WPI_TOTAL_SUPPLY_OVERRIDE optional: skip RPC, use this supply (stroops)
+  POR_OUT                   output path (signed default: attestations/latest.json)
+  WPI_TOTAL_SUPPLY_OVERRIDE optional: skip RPC, use this non-negative supply
+
+Notes:
+  --unsigned prints to stdout only unless POR_OUT is set explicitly
+  (does not overwrite attestations/latest.json by default).
 `);
 }
 
@@ -65,6 +72,15 @@ function hexToBuf(hex) {
 
 function bufToHex(buf) {
   return Buffer.from(buf).toString("hex");
+}
+
+/** Parse a non-negative integer string (no leading minus). */
+function parseNonNegativeBigInt(label, raw) {
+  const v = String(raw).trim();
+  if (!/^[0-9]+$/.test(v)) {
+    throw new Error(`${label} must be a non-negative integer string (stroops)`);
+  }
+  return BigInt(v);
 }
 
 /** 32-byte seed → PKCS8 DER for Ed25519 (Node crypto). */
@@ -119,32 +135,32 @@ function canonicalPayload(fields) {
   return JSON.stringify(body);
 }
 
+/**
+ * healthy  <=>  piBalance >= wpiSupply * (1 - marginBps/10000)
+ * i.e.     <=>  wpiSupply <= piBalance * (10000 - marginBps) / 10000
+ */
 function computeStatus(piBalance, wpiSupply, marginBps) {
-  if (wpiSupply < 0n || piBalance < 0n) {
-    return { status: "unknown", collateral_ratio: "unknown" };
-  }
   if (wpiSupply === 0n) {
     return { status: "healthy", collateral_ratio: "inf" };
   }
-  // cap = reserve * (10000 - margin) / 10000
   const cap = (piBalance * BigInt(10000 - marginBps)) / 10000n;
+  // Prefer BigInt ratio string when possible; fall back to fixed decimal for display
   const ratio = Number(piBalance) / Number(wpiSupply);
-  const collateral_ratio =
-    Number.isFinite(ratio) ? ratio.toFixed(8) : "unknown";
+  const collateral_ratio = Number.isFinite(ratio)
+    ? ratio.toFixed(8)
+    : (piBalance * 100000000n / wpiSupply).toString() + "e-8";
   const status = wpiSupply <= cap ? "healthy" : "under_collateralized";
   return { status, collateral_ratio };
 }
 
 async function fetchTotalSupply(rpcUrl, contractId) {
-  // Soroban JSON-RPC: simulate or getLedgerEntries is complex without XDR tooling.
-  // Prefer getContractData via stellar-compatible RPC if available; fallback OVERRIDE.
   if (process.env.WPI_TOTAL_SUPPLY_OVERRIDE !== undefined) {
-    return BigInt(process.env.WPI_TOTAL_SUPPLY_OVERRIDE);
+    return parseNonNegativeBigInt(
+      "WPI_TOTAL_SUPPLY_OVERRIDE",
+      process.env.WPI_TOTAL_SUPPLY_OVERRIDE,
+    );
   }
 
-  // Attempt: call simulation of total_supply() via eth-like is not available.
-  // Use Stellar Horizon/Soroban `getLedgerEntries` needs key encoding.
-  // Practical approach for v1: `stellar contract invoke` if CLI present, else RPC simulate.
   const stellar = process.env.STELLAR_CLI || "stellar";
   const network = process.env.STELLAR_NETWORK || "testnet";
   const { spawnSync } = await import("node:child_process");
@@ -157,7 +173,8 @@ async function fetchTotalSupply(rpcUrl, contractId) {
       "--id",
       contractId,
       "--source-account",
-      process.env.STELLAR_SOURCE_ACCOUNT || "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+      process.env.STELLAR_SOURCE_ACCOUNT ||
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
       "--rpc-url",
       rpcUrl,
       "--network-passphrase",
@@ -167,18 +184,18 @@ async function fetchTotalSupply(rpcUrl, contractId) {
       "--",
       "total_supply",
     ],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 30_000 },
   );
+
+  if (tryCli.error && tryCli.error.code === "ETIMEDOUT") {
+    throw new Error("stellar CLI total_supply invoke timed out (30s)");
+  }
 
   if (tryCli.status === 0 && tryCli.stdout.trim() !== "") {
     const out = tryCli.stdout.trim().replace(/"/g, "");
-    if (/^-?\d+$/.test(out)) {
-      return BigInt(out);
-    }
+    return parseNonNegativeBigInt("total_supply (CLI)", out);
   }
 
-  // JSON-RPC simulateTransaction requires a full envelope; too heavy without SDK.
-  // Documented fallback:
   console.warn(
     "[por] Could not read total_supply via stellar CLI. " +
       "Set WPI_TOTAL_SUPPLY_OVERRIDE=<stroops> or install Stellar CLI. " +
@@ -193,21 +210,17 @@ function readPiBalance() {
   if (process.env.PI_CUSTODY_BALANCE_FILE) {
     const p = process.env.PI_CUSTODY_BALANCE_FILE;
     const v = readFileSync(p, "utf8").trim();
-    if (!/^-?\d+$/.test(v)) {
-      throw new Error(`PI_CUSTODY_BALANCE_FILE invalid content: ${p}`);
-    }
     return {
-      balance: BigInt(v),
+      balance: parseNonNegativeBigInt(`PI_CUSTODY_BALANCE_FILE (${p})`, v),
       source: process.env.PI_BALANCE_SOURCE || "file",
     };
   }
   if (process.env.PI_CUSTODY_BALANCE !== undefined) {
-    const v = String(process.env.PI_CUSTODY_BALANCE).trim();
-    if (!/^-?\d+$/.test(v)) {
-      throw new Error("PI_CUSTODY_BALANCE must be an integer string (stroops)");
-    }
     return {
-      balance: BigInt(v),
+      balance: parseNonNegativeBigInt(
+        "PI_CUSTODY_BALANCE",
+        process.env.PI_CUSTODY_BALANCE,
+      ),
       source: process.env.PI_BALANCE_SOURCE || "env",
     };
   }
@@ -227,7 +240,6 @@ function cmdKeygen() {
   console.log(
     "\n# Save the secret offline. Commit only the public key to attestations/ATTESTOR_PUBLIC_KEY",
   );
-  // Also write PEM examples to stdout tip
   console.log("\n# Optional PEM private key:\n");
   console.log(privateKey.export({ type: "pkcs8", format: "pem" }));
 }
@@ -239,6 +251,11 @@ async function cmdAttest(unsigned) {
     process.env.STELLAR_SOROBAN_RPC_URL ||
     "https://soroban-testnet.stellar.org";
   const network = process.env.STELLAR_NETWORK || "testnet";
+  if (!ALLOWED_NETWORKS.has(network)) {
+    throw new Error(
+      `STELLAR_NETWORK must be "testnet" or "public" (got "${network}")`,
+    );
+  }
   const custodyAccount = process.env.PI_CUSTODY_ACCOUNT;
   if (!custodyAccount) throw new Error("PI_CUSTODY_ACCOUNT is required");
   const marginBps = Number(process.env.SAFETY_MARGIN_BPS || "0");
@@ -277,13 +294,7 @@ async function cmdAttest(unsigned) {
     attestor_public_key = bufToHex(publicKeyRaw(pub));
     const sig = sign(null, Buffer.from(payload, "utf8"), priv);
     signature = bufToHex(sig);
-    // self-check
-    const ok = verify(
-      null,
-      Buffer.from(payload, "utf8"),
-      pub,
-      sig,
-    );
+    const ok = verify(null, Buffer.from(payload, "utf8"), pub, sig);
     if (!ok) throw new Error("internal: signature self-verify failed");
   } else {
     attestor_public_key = process.env.POR_ATTESTOR_PUBLIC_KEY || "";
@@ -299,25 +310,35 @@ async function cmdAttest(unsigned) {
     signed_fields: [...SIGNED_FIELDS],
   };
 
-  const outPath = resolve(
-    process.env.POR_OUT || join(REPO_ROOT, "attestations/latest.json"),
-  );
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, JSON.stringify(attestation, null, 2) + "\n");
+  // --unsigned: stdout only unless POR_OUT is explicitly set (never default to latest.json)
+  const explicitOut = process.env.POR_OUT;
+  const shouldWrite = !unsigned || Boolean(explicitOut);
 
-  // history snapshot next to the output file (skip if POR_HISTORY=0)
-  if (process.env.POR_HISTORY !== "0") {
-    const histDir = join(dirname(outPath), "history");
-    mkdirSync(histDir, { recursive: true });
-    const stamp = issued_at.replace(/[:.]/g, "-");
-    writeFileSync(
-      join(histDir, `${stamp}.json`),
-      JSON.stringify(attestation, null, 2) + "\n",
+  console.log(JSON.stringify(attestation, null, 2));
+
+  if (shouldWrite) {
+    const outPath = resolve(
+      explicitOut || join(REPO_ROOT, "attestations/latest.json"),
+    );
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, JSON.stringify(attestation, null, 2) + "\n");
+
+    if (process.env.POR_HISTORY !== "0") {
+      const histDir = join(dirname(outPath), "history");
+      mkdirSync(histDir, { recursive: true });
+      const stamp = issued_at.replace(/[:.]/g, "-");
+      writeFileSync(
+        join(histDir, `${stamp}.json`),
+        JSON.stringify(attestation, null, 2) + "\n",
+      );
+    }
+    console.log(`\nWrote ${outPath}`);
+  } else {
+    console.log(
+      "\n[--unsigned] not writing files (set POR_OUT to write explicitly)",
     );
   }
 
-  console.log(JSON.stringify(attestation, null, 2));
-  console.log(`\nWrote ${outPath}`);
   if (status !== "healthy") {
     console.error(`\nWARNING: attestation status is ${status}`);
     process.exitCode = 2;

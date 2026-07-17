@@ -1,6 +1,6 @@
 # Proof of Reserve (PoR) — Wrapped Pi (wPi)
 
-**Status:** Live off-chain process (v1)  
+**Status:** Process and tooling are ready (v1); the published feed under `attestations/` is currently **demonstration data** until operators configure a real wPi contract ID, Pi custody balance source, and cadence job.  
 **Related:** [Issue #25](https://github.com/Pi-Defi-world/Wpi/issues/25)  
 **On-chain follow-up design:** [design/on-chain-reserve-oracle.md](./design/on-chain-reserve-oracle.md)
 
@@ -43,20 +43,22 @@ See [`attestations/schema.json`](../attestations/schema.json). Core fields:
 | `pi_custody_balance` | string (integer stroops, 7 decimals) | Reported Pi reserve |
 | `pi_balance_source` | string | How the Pi balance was obtained (`file` / `env` / `api` / `manual`) |
 | `safety_margin_bps` | number | Allowed under-collateralization in bps |
-| `collateral_ratio` | string | Decimal ratio as string, or `"inf"` if supply is 0 |
-| `status` | string | `healthy` \| `under_collateralized` \| `unknown` |
+| `collateral_ratio` | string | Display ratio (recomputed by verifier; not signed), or `"inf"` if supply is 0 |
+| `status` | string | `healthy` \| `under_collateralized` (negative quantities are rejected) |
 | `attestor_public_key` | string | Hex-encoded Ed25519 public key (32 bytes) |
 | `signature` | string | Hex-encoded Ed25519 signature over the **canonical payload** |
+
+`wpi_total_supply` and `pi_custody_balance` are **non-negative** decimal integer strings only (no leading `-`).
 
 ### Canonical payload (what is signed)
 
 UTF-8 bytes of JSON with:
 
-- Only the fields listed in `signed_fields` (stable order)
+- Exactly the **immutable v1** `signed_fields` list below (order fixed; verifier rejects any other list)
 - No whitespace (`JSON.stringify` compact form)
-- **Excludes** `signature` and `attestor_public_key` from the signed body; public key is published out-of-band and echoed in the file for convenience
+- **Excludes** `signature`, `attestor_public_key`, `collateral_ratio`, and `status` from the signed body
 
-`signed_fields` (v1, fixed order):
+`signed_fields` (v1, immutable order):
 
 ```
 schema_version, issued_at, network, wpi_contract_id, wpi_total_supply,
@@ -82,7 +84,14 @@ Stale attestations: consumers should treat `issued_at` older than **2× cadence*
 
 2. Store `POR_ATTESTOR_SECRET_KEY` (hex 64-byte seed or PKCS8 PEM from the tool) in a secret manager / CI secret.
 3. Publish `POR_ATTESTOR_PUBLIC_KEY` (hex) in this repo: [`attestations/ATTESTOR_PUBLIC_KEY`](../attestations/ATTESTOR_PUBLIC_KEY).
-4. Rotate keys by publishing a new public key and dual-signing for one cadence window if needed.
+4. **Key rotation:** commit the new public key to `ATTESTOR_PUBLIC_KEY` (current key). Keep retired public keys under e.g. `attestations/keys/retired/<YYYY-MM-DD>.hex`. Historical attestations signed by an old key verify with:
+
+   ```bash
+   node scripts/por/verify.mjs attestations/history/<file>.json \
+     --pubkey attestations/keys/retired/<YYYY-MM-DD>.hex
+   ```
+
+   The default verifier uses only the **current** committed public key. There is no dual-signature envelope in v1.
 
 ## Running the attestor
 
@@ -115,13 +124,14 @@ Stale attestations: consumers should treat `issued_at` older than **2× cadence*
 # Generate keypair (prints hex public/secret; save secret offline)
 node scripts/por/attest.mjs keygen
 
-# Produce attestation (writes latest.json + history snapshot)
+# Produce signed attestation (writes latest.json + history snapshot)
 node scripts/por/attest.mjs attest
 
 # Verify a file against the published public key
 node scripts/por/verify.mjs attestations/latest.json
 
-# Dry-run without signing (unsigned payload for debugging)
+# Dry-run without signing: prints JSON to stdout only (does not write latest.json
+# unless POR_OUT is set explicitly)
 node scripts/por/attest.mjs attest --unsigned
 ```
 
@@ -140,19 +150,20 @@ node scripts/por/attest.mjs attest --unsigned
 2. Schedule: `0 * * * *`
 3. Steps: checkout → `node scripts/por/attest.mjs attest` → commit `attestations/latest.json` to a `por-feed` branch **or** upload as artifact / gist
 
-Publishing the signed JSON to a stable URL (repo path, gist, or dashboard) is what makes the process **live** for external observers.
+Publishing **signed, production** JSON on a stable cadence is what makes the process operational for external observers. Until then, treat repo paths as a **demo feed**.
 
 ## Dashboard (public link surface)
 
-Until a dedicated UI ships, treat these as the public dashboard:
+Until a dedicated UI ships, these paths are the public surface. **Today they serve demonstration / bootstrap data** (placeholder contract id, manual balances), not production custody numbers.
 
-| Resource | Path / URL |
-|----------|------------|
-| Latest attestation | [`attestations/latest.json`](../attestations/latest.json) |
-| Schema | [`attestations/schema.json`](../attestations/schema.json) |
-| Attestor pubkey | [`attestations/ATTESTOR_PUBLIC_KEY`](../attestations/ATTESTOR_PUBLIC_KEY) |
-| Process docs | this file |
-| On-chain design | [`docs/design/on-chain-reserve-oracle.md`](./design/on-chain-reserve-oracle.md) |
+| Resource | Path / URL | Notes |
+|----------|------------|--------|
+| Latest attestation | [`attestations/latest.json`](../attestations/latest.json) | Demo until ops cadence is configured |
+| Sample | [`attestations/sample.json`](../attestations/sample.json) | Same shape; for offline demos |
+| Schema | [`attestations/schema.json`](../attestations/schema.json) | |
+| Attestor pubkey | [`attestations/ATTESTOR_PUBLIC_KEY`](../attestations/ATTESTOR_PUBLIC_KEY) | Current key only |
+| Process docs | this file | |
+| On-chain design | [`docs/design/on-chain-reserve-oracle.md`](./design/on-chain-reserve-oracle.md) | |
 
 A minimal static page can load `latest.json` and show ratio + signature validity; not required for v1 acceptance.
 
