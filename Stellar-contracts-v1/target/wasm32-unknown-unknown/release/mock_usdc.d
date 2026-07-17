@@ -1,1 +1,1 @@
-C:\Users\USER\usdp\Stellar-contracts-v1\target\wasm32-unknown-unknown\release\mock_usdc.wasm: C:\Users\USER\usdp\Stellar-contracts-v1\mock-usdc\src\lib.rs
+C:\Users\HP\Desktop\Wpi\Stellar-contracts-v1\target\wasm32-unknown-unknown\release\mock_usdc.wasm: C:\Users\HP\Desktop\Wpi\Stellar-contracts-v1\mock-usdc\src\lib.rs

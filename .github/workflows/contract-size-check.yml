@@ -1,0 +1,72 @@
+name: Contract Size Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  size-check:
+    name: Check Contract Sizes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Stellar-contracts-v1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install wasm32-unknown-unknown target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build contracts in release mode
+        run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Check WASM sizes and create report
+        id: size-report
+        run: |
+          echo "## Contract Sizes" > sizes.md
+          echo "" >> sizes.md
+          echo "| Contract | Size (bytes) | Baseline | Change |" >> sizes.md
+          echo "|----------|--------------|----------|--------|" >> sizes.md
+          
+          # Read baseline
+          if [ -f "baseline.json" ]; then
+            for contract in wpi-token mock-usdc mock-amm; do
+              wasm_file="target/wasm32-unknown-unknown/release/${contract//-/_}.wasm"
+              if [ -f "$wasm_file" ]; then
+                size=$(stat -c%s "$wasm_file")
+                baseline=$(grep -Po "(?<=\"${contract}\": )\d+" baseline.json || echo 0)
+                change=$((size - baseline))
+                if [ $change -gt 0 ]; then
+                  change="+${change}"
+                fi
+                echo "| ${contract} | ${size} | ${baseline} | ${change} |" >> sizes.md
+              else
+                echo "| ${contract} | N/A | N/A | N/A |" >> sizes.md
+              fi
+            done
+          else
+            for contract in wpi-token mock-usdc mock-amm; do
+              wasm_file="target/wasm32-unknown-unknown/release/${contract//-/_}.wasm"
+              if [ -f "$wasm_file" ]; then
+                size=$(stat -c%s "$wasm_file")
+                echo "| ${contract} | ${size} | N/A | N/A |" >> sizes.md
+              else
+                echo "| ${contract} | N/A | N/A | N/A |" >> sizes.md
+              fi
+            done
+          fi
+
+      - name: Comment on PR
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: ./Stellar-contracts-v1/sizes.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
