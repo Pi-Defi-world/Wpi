@@ -3,9 +3,7 @@
 //! Mock USDC for Stellar testnet — same admin-mint token interface as wPi / PUSD.
 //! Use only for DEX / reserve simulations; production reserves use real USDC.
 
-use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, Address, BytesN, Env,
-};
+use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, BytesN, Env};
 
 const NAME: &str = "Mock USDC";
 const SYMBOL: &str = "mUSDC";
@@ -79,10 +77,7 @@ fn read_allowance(env: &Env, from: &Address, spender: &Address) -> i128 {
 fn write_allowance(env: &Env, from: &Address, spender: &Address, amount: i128) {
     env.storage()
         .instance()
-        .set(
-            &DataKey::Allowance(from.clone(), spender.clone()),
-            &amount,
-        );
+        .set(&DataKey::Allowance(from.clone(), spender.clone()), &amount);
 }
 
 fn read_total_supply(env: &Env) -> i128 {
@@ -175,7 +170,12 @@ impl MockUsdcToken {
         Self::transfer_internal(&env, &from, &to, amount)
     }
 
-    fn transfer_internal(env: &Env, from: &Address, to: &Address, amount: i128) -> Result<(), Error> {
+    fn transfer_internal(
+        env: &Env,
+        from: &Address,
+        to: &Address,
+        amount: i128,
+    ) -> Result<(), Error> {
         if amount < 0 {
             return Err(Error::InsufficientBalance);
         }

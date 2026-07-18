@@ -1,6 +1,9 @@
 # Stellar-contracts-v1
 
-Soroban contracts deployed on **Stellar** (testnet/mainnet) for the PUSD decentralized reserve bridge:
+Soroban contracts deployed on **Stellar** (testnet/mainnet) for the PUSD decentralized reserve bridge.
+
+The relayer that mints wPi after Pi deposits are observed on Pi Network, and
+that releases Pi on wPi redemption, lives in [`../relayer`](../relayer/README.md).
 
 | Crate        | WASM artifact   | Purpose                                      |
 |-------------|-----------------|----------------------------------------------|
@@ -32,6 +35,9 @@ Set backend env:
 - `STELLAR_NETWORK_PASSPHRASE` — Stellar testnet passphrase
 - `WPI_CONTRACT_ID` / `MOCK_USDC_CONTRACT_ID` — deployed contract IDs
 - `BRIDGE_STELLAR_ADMIN_SECRET_KEY` — admin key that mints wPi (keep offline in production)
+
+These same values, plus the Pi Network side, configure the relayer — see
+[`../relayer/.env.example`](../relayer/.env.example).
 
 ## DEX / AMM
 
