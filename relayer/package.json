@@ -1,0 +1,33 @@
+{
+  "name": "@wpi/relayer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pi Network -> Stellar wPi bridge relayer: deposit watcher, confirmation-gated mint submission, and redemption/burn release watcher.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo:e2e": "tsx scripts/e2e-demo.ts"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^12.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/node": "^20.14.0",
+    "eslint": "^9.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.12.0",
+    "vitest": "^4.1.10"
+  }
+}

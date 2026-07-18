@@ -18,6 +18,65 @@ pub const DECIMALS: u32 = 7;
 #[contract]
 pub struct MockUsdcToken;
 
+fn read_admin(env: &Env) -> Address {
+    env.storage()
+        .instance()
+        .get::<DataKey, Address>(&DataKey::Admin)
+        .unwrap()
+}
+
+fn write_admin(env: &Env, admin: &Address) {
+    env.storage().instance().set(&DataKey::Admin, admin);
+}
+
+fn is_paused(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get::<DataKey, bool>(&DataKey::Paused)
+        .unwrap_or(false)
+}
+
+fn set_paused(env: &Env, paused: bool) {
+    env.storage().instance().set(&DataKey::Paused, &paused);
+}
+
+fn read_balance(env: &Env, addr: &Address) -> i128 {
+    env.storage()
+        .instance()
+        .get::<DataKey, i128>(&DataKey::Balance(addr.clone()))
+        .unwrap_or(0)
+}
+
+fn write_balance(env: &Env, addr: &Address, amount: i128) {
+    env.storage()
+        .instance()
+        .set(&DataKey::Balance(addr.clone()), &amount);
+}
+
+fn read_allowance(env: &Env, from: &Address, spender: &Address) -> i128 {
+    env.storage()
+        .instance()
+        .get::<DataKey, i128>(&DataKey::Allowance(from.clone(), spender.clone()))
+        .unwrap_or(0)
+}
+
+fn write_allowance(env: &Env, from: &Address, spender: &Address, amount: i128) {
+    env.storage()
+        .instance()
+        .set(&DataKey::Allowance(from.clone(), spender.clone()), &amount);
+}
+
+fn read_total_supply(env: &Env) -> i128 {
+    env.storage()
+        .instance()
+        .get::<DataKey, i128>(&DataKey::TotalSupply)
+        .unwrap_or(0)
+}
+
+fn write_total_supply(env: &Env, amount: i128) {
+    env.storage().instance().set(&DataKey::TotalSupply, &amount);
+}
+
 #[contractimpl]
 impl MockUsdcToken {
     pub fn initialize(env: Env, admin: Address) {
@@ -72,6 +131,35 @@ impl MockUsdcToken {
         amount: i128,
     ) -> Result<(), Error> {
         transfer_from_token(&env, &spender, &from, &to, amount)
+        if is_paused(&env) {
+            return Err(Error::Paused);
+        }
+        spender.require_auth();
+        let current_allowance = read_allowance(&env, &from, &spender);
+        if current_allowance < amount {
+            return Err(Error::InsufficientAllowance);
+        }
+        write_allowance(&env, &from, &spender, current_allowance - amount);
+        Self::transfer_internal(&env, &from, &to, amount)
+    }
+
+    fn transfer_internal(
+        env: &Env,
+        from: &Address,
+        to: &Address,
+        amount: i128,
+    ) -> Result<(), Error> {
+        if amount < 0 {
+            return Err(Error::InsufficientBalance);
+        }
+        let from_balance = read_balance(env, from);
+        if from_balance < amount {
+            return Err(Error::InsufficientBalance);
+        }
+        let to_balance = read_balance(env, to);
+        write_balance(env, from, from_balance - amount);
+        write_balance(env, to, to_balance + amount);
+        Ok(())
     }
 
     pub fn mint(env: Env, admin: Address, to: Address, amount: i128) -> Result<(), Error> {

@@ -1,0 +1,2 @@
+# Store retired attestor public keys as <YYYY-MM-DD>.hex for historical verify:
+#   node scripts/por/verify.mjs history/....json --pubkey keys/retired/<date>.hex
