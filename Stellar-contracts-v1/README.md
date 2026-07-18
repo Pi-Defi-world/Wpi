@@ -36,8 +36,22 @@ Set backend env:
 - `WPI_CONTRACT_ID` / `MOCK_USDC_CONTRACT_ID` — deployed contract IDs
 - `BRIDGE_STELLAR_ADMIN_SECRET_KEY` — admin key that mints wPi (keep offline in production)
 
+
+
+## Quickstart: full testnet flow
+
+Run the scripted walkthrough to build and exercise the complete testnet path. It uses real Stellar/Soroban CLI commands against testnet, creates/funds fresh identities when needed, and prints the expected successful output after each step:
+
+```bash
+cd Stellar-contracts-v1
+./scripts/quickstart.sh
+```
+
+The script deploys `wpi-token`, `mock-usdc`, and `mock-amm`, then runs initialize → mint → approve → transfer → liquidity deposit → swap. Override identities, amounts, or network settings with environment variables such as `ADMIN_IDENTITY`, `RECIPIENT_IDENTITY`, `RPC_URL`, `MINT_AMOUNT`, and `SWAP_AMOUNT`.
+
 These same values, plus the Pi Network side, configure the relayer — see
 [`../relayer/.env.example`](../relayer/.env.example).
+
 
 ## DEX / AMM
 
