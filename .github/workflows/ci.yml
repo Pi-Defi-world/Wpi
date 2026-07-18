@@ -7,7 +7,7 @@ on:
 
 jobs:
   contracts:
-    name: Stellar contracts (fmt, clippy, test, wasm build)
+    name: Stellar contracts (fmt, clippy, test, wasm build, size check)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -42,6 +42,113 @@ jobs:
 
       - name: cargo build (wasm32, release)
         run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Report WASM sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          WASM_DIR="target/wasm32-unknown-unknown/release"
+          CONTRACTS=("wpi_token" "mock_usdc" "mock_amm")
+
+          # Build JSON and Markdown table simultaneously
+          JSON="{"
+          MD_TABLE="| Contract | Bytes | KB |\n|---|---|---|\n"
+
+          for name in "${CONTRACTS[@]}"; do
+            WASM_FILE="${WASM_DIR}/${name}.wasm"
+            if [[ -f "$WASM_FILE" ]]; then
+              BYTES=$(stat -c%s "$WASM_FILE")
+            else
+              echo "WARNING: ${WASM_FILE} not found — size recorded as 0"
+              BYTES=0
+            fi
+            KB=$(awk "BEGIN { printf \"%.2f\", ${BYTES}/1024 }")
+            JSON+="\"${name}\": ${BYTES},"
+            MD_TABLE+="| \`${name}\` | ${BYTES} | ${KB} |\n"
+          done
+
+          # Trim trailing comma and close JSON
+          JSON="${JSON%,}}"
+          echo "$JSON" > wasm-sizes.json
+
+          # Print to console
+          echo "=== WASM sizes ==="
+          cat wasm-sizes.json
+
+          # Post to GitHub Actions Job Summary
+          {
+            echo "## WASM Size Report"
+            echo ""
+            printf "%b" "${MD_TABLE}"
+            echo ""
+            echo "_Baseline threshold: \`${WASM_SIZE_THRESHOLD_PCT:-5}\`% growth triggers a failure._"
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          WASM_SIZE_THRESHOLD_PCT: "5"
+
+      - name: Check WASM size regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          THRESHOLD=${WASM_SIZE_THRESHOLD_PCT:-5}
+          BASELINE_FILE="wasm-size-baseline.json"
+          CURRENT_FILE="wasm-sizes.json"
+
+          if [[ ! -f "$BASELINE_FILE" ]]; then
+            echo "No baseline file found at ${BASELINE_FILE} — skipping regression check."
+            exit 0
+          fi
+
+          FAILED=0
+          REPORT="## WASM Size Regression Check\n\n| Contract | Baseline (B) | Current (B) | Delta | Status |\n|---|---|---|---|---|\n"
+
+          for name in $(jq -r 'keys[]' "$CURRENT_FILE"); do
+            CURRENT=$(jq -r ".\"${name}\"" "$CURRENT_FILE")
+            BASELINE=$(jq -r ".\"${name}\" // 0" "$BASELINE_FILE")
+
+            if [[ "$BASELINE" -eq 0 ]]; then
+              STATUS="⚪ no baseline"
+              DELTA="—"
+            else
+              DELTA=$(( CURRENT - BASELINE ))
+              PCT=$(awk "BEGIN { printf \"%.1f\", (${DELTA}/${BASELINE})*100 }")
+              if (( DELTA > 0 )) && awk "BEGIN { exit !(${PCT} > ${THRESHOLD}) }"; then
+                STATUS="🔴 +${PCT}% REGRESSION"
+                FAILED=1
+              elif (( DELTA > 0 )); then
+                STATUS="🟡 +${PCT}%"
+              else
+                STATUS="🟢 ${PCT}%"
+              fi
+              DELTA="${DELTA} B (${PCT}%)"
+            fi
+
+            REPORT+="| \`${name}\` | ${BASELINE} | ${CURRENT} | ${DELTA} | ${STATUS} |\n"
+          done
+
+          printf "%b" "${REPORT}" >> "$GITHUB_STEP_SUMMARY"
+          printf "%b" "${REPORT}"
+
+          if [[ "$FAILED" -eq 1 ]]; then
+            echo ""
+            echo "ERROR: One or more contracts exceeded the ${THRESHOLD}% size growth threshold."
+            echo "Update wasm-size-baseline.json if the size increase is intentional."
+            exit 1
+          fi
+        env:
+          WASM_SIZE_THRESHOLD_PCT: "5"
+
+      - name: Upload WASM artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: |
+            Stellar-contracts-v1/target/wasm32-unknown-unknown/release/wpi_token.wasm
+            Stellar-contracts-v1/target/wasm32-unknown-unknown/release/mock_usdc.wasm
+            Stellar-contracts-v1/target/wasm32-unknown-unknown/release/mock_amm.wasm
+            Stellar-contracts-v1/wasm-sizes.json
+          if-no-files-found: warn
 
   relayer:
     name: Relayer (typecheck, lint, test)

@@ -53,6 +53,38 @@ These same values, plus the Pi Network side, configure the relayer — see
 [`../relayer/.env.example`](../relayer/.env.example).
 
 
+## WASM Size Tracking
+
+CI reports the compiled WASM size for each contract on every PR and compares it against the committed baseline in [`wasm-size-baseline.json`](./wasm-size-baseline.json).
+
+| Contract | Baseline file key |
+|---|---|
+| `wpi-token` | `wpi_token` |
+| `mock-usdc` | `mock_usdc` |
+| `mock-amm` | `mock_amm` |
+
+A contract that grows by more than **5 %** relative to its baseline will fail the `Check WASM size regressions` step. The full size table and diff are posted to the **Job Summary** tab in GitHub Actions.
+
+### Setting / updating the baseline
+
+After an intentional size change (new feature, dependency bump, etc.), refresh the baseline:
+
+```bash
+# 1. Build release WASMs
+cd Stellar-contracts-v1
+cargo build --target wasm32-unknown-unknown --release
+
+# 2. Regenerate the baseline file (from the repo root)
+cd ..
+bash scripts/update_wasm_baseline.sh
+
+# 3. Commit
+git add Stellar-contracts-v1/wasm-size-baseline.json
+git commit -m "chore: update WASM size baseline"
+```
+
+> **First-time setup**: The baseline ships with zeros so the first CI run reports sizes without failing. Copy the byte values from the Job Summary into `wasm-size-baseline.json` (or run `update_wasm_baseline.sh` locally) and commit them before relying on regression detection.
+
 ## DEX / AMM
 
 Pool creation against Soroswap or another Stellar AMM is **not** included here; seed liquidity off-chain after deploying both tokens.
