@@ -1,7 +1,0 @@
-C:\Users\USER\usdp\Stellar-contracts-v1\target\release\deps\cfg_if-938801af8d8eee44.d: C:\Users\USER\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs
-
-C:\Users\USER\usdp\Stellar-contracts-v1\target\release\deps\libcfg_if-938801af8d8eee44.rlib: C:\Users\USER\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs
-
-C:\Users\USER\usdp\Stellar-contracts-v1\target\release\deps\libcfg_if-938801af8d8eee44.rmeta: C:\Users\USER\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs
-
-C:\Users\USER\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs:
