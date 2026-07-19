@@ -14,3 +14,4 @@ soroban-token-common = { path = "../soroban-token-common" }
 
 [dev-dependencies]
 soroban-sdk = { version = "=23.0.1", features = ["testutils"] }
+proptest = "1.5"

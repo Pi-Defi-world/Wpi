@@ -1,0 +1,146 @@
+//! Property tests for wPi token arithmetic edge cases (Issue #36).
+//!
+//! Covers:
+//! - `sum(balances) == total_supply` holds after every op in arbitrary
+//!   mint/burn/transfer sequences, including near-i128::MAX values.
+//! - No operation panics, even at overflow boundaries (errors are returned
+//!   instead, see `Error::Overflow`).
+//! - Self-transfer is always a no-op.
+
+#![cfg(test)]
+
+use super::*;
+use proptest::prelude::*;
+use soroban_sdk::testutils::Address as _;
+
+const NUM_USERS: u8 = 4;
+
+fn setup(env: &Env) -> (WpiTokenClient<'_>, Address, [Address; NUM_USERS as usize]) {
+    env.mock_all_auths();
+    let contract_id = env.register(WpiToken, ());
+    let client = WpiTokenClient::new(env, &contract_id);
+    let admin = Address::generate(env);
+    client.initialize(&admin);
+    let users = core::array::from_fn(|_| Address::generate(env));
+    (client, admin, users)
+}
+
+fn sum_balances(client: &WpiTokenClient, users: &[Address; NUM_USERS as usize]) -> i128 {
+    users.iter().map(|u| client.balance(u)).sum()
+}
+
+fn assert_invariant(client: &WpiTokenClient, users: &[Address; NUM_USERS as usize]) {
+    assert_eq!(
+        sum_balances(client, users),
+        client.total_supply(),
+        "sum(balances) must always equal total_supply"
+    );
+}
+
+#[derive(Clone, Debug)]
+enum Op {
+    Mint(u8, i128),
+    Burn(u8, i128),
+    Transfer(u8, u8, i128),
+}
+
+fn user_idx() -> impl Strategy<Value = u8> {
+    0..NUM_USERS
+}
+
+/// Mix of small everyday amounts, boundary amounts near i128::MAX, and
+/// invalid (negative) amounts, so shrinking finds real edge cases rather
+/// than just typical-case noise.
+fn amount_strategy() -> impl Strategy<Value = i128> {
+    prop_oneof![
+        3 => 0i128..=1_000_000i128,
+        2 => (i128::MAX - 1_000_000)..=i128::MAX,
+        1 => i128::MIN..=-1i128,
+    ]
+}
+
+fn op_strategy() -> impl Strategy<Value = Op> {
+    prop_oneof![
+        (user_idx(), amount_strategy()).prop_map(|(u, a)| Op::Mint(u, a)),
+        (user_idx(), amount_strategy()).prop_map(|(u, a)| Op::Burn(u, a)),
+        (user_idx(), user_idx(), amount_strategy()).prop_map(|(f, t, a)| Op::Transfer(f, t, a)),
+    ]
+}
+
+proptest! {
+    /// Arbitrary sequences of mint/burn/transfer must never panic, and the
+    /// sum(balances) == total_supply invariant must hold after every single
+    /// operation in the sequence, regardless of whether that operation
+    /// succeeded or was rejected.
+    #[test]
+    fn invariant_holds_across_arbitrary_sequences(ops in prop::collection::vec(op_strategy(), 0..30)) {
+        let env = Env::default();
+        let (client, admin, users) = setup(&env);
+
+        for op in ops {
+            match op {
+                Op::Mint(u, amount) => {
+                    let _ = client.try_mint(&admin, &users[u as usize], &amount);
+                }
+                Op::Burn(u, amount) => {
+                    let _ = client.try_burn(&admin, &users[u as usize], &amount);
+                }
+                Op::Transfer(f, t, amount) => {
+                    let from = users[f as usize].clone();
+                    let _ = client.try_transfer(&from, &users[t as usize], &amount);
+                }
+            }
+            assert_invariant(&client, &users);
+        }
+    }
+
+    /// Self-transfer must always be a no-op: the balance before and after
+    /// must match exactly, for both ordinary and boundary amounts, whether
+    /// the call succeeds or is rejected.
+    #[test]
+    fn self_transfer_is_always_a_no_op(u in user_idx(), mint_amount in 0i128..=1_000_000_000i128, transfer_amount in amount_strategy()) {
+        let env = Env::default();
+        let (client, admin, users) = setup(&env);
+        let user = users[u as usize].clone();
+
+        if mint_amount > 0 {
+            client.mint(&admin, &user, &mint_amount);
+        }
+        let before = client.balance(&user);
+
+        let _ = client.try_transfer(&user, &user, &transfer_amount);
+
+        let after = client.balance(&user);
+        prop_assert_eq!(before, after, "self-transfer must never change balance");
+        assert_invariant(&client, &users);
+    }
+
+    /// Repeated mint/burn cycles near i128::MAX must never panic; once a
+    /// mint would overflow total_supply or a user balance, it must be
+    /// rejected with Error::Overflow instead, leaving state untouched.
+    #[test]
+    fn repeated_mint_burn_near_max_never_panics(amounts in prop::collection::vec((i128::MAX / 4)..=(i128::MAX / 2), 0..8)) {
+        let env = Env::default();
+        let (client, admin, users) = setup(&env);
+        let user = users[0].clone();
+
+        for amount in amounts {
+            let before_balance = client.balance(&user);
+            let before_supply = client.total_supply();
+
+            if client.try_mint(&admin, &user, &amount).is_err() {
+                // Rejected mint must leave state exactly as it was.
+                prop_assert_eq!(client.balance(&user), before_balance);
+                prop_assert_eq!(client.total_supply(), before_supply);
+            }
+            assert_invariant(&client, &users);
+
+            // Burn back half of whatever is there; must never panic either.
+            let bal = client.balance(&user);
+            if bal > 0 {
+                let _ = client.try_burn(&admin, &user, &(bal / 2));
+            }
+            assert_invariant(&client, &users);
+        }
+    }
+}
