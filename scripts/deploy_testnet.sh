@@ -11,9 +11,9 @@ NETWORK_PASSPHRASE="${STELLAR_NETWORK_PASSPHRASE:-Test SDF Network ; September 2
 SOURCE_ACCOUNT="${STELLAR_ACCOUNT:-${ADMIN_IDENTITY:-wpi-testnet-admin}}"
 RATE_BPS="${RATE_BPS:-1000000}"
 
-WPI_WASM="${WPI_WASM:-target/wasm32-unknown-unknown/release/wpi_token.wasm}"
-USDC_WASM="${USDC_WASM:-target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
-AMM_WASM="${AMM_WASM:-target/wasm32-unknown-unknown/release/mock_amm.wasm}"
+WPI_WASM="${WPI_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/wpi_token.wasm}"
+USDC_WASM="${USDC_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
+AMM_WASM="${AMM_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_amm.wasm}"
 
 NETWORK_ARGS=(--network "$NETWORK" --rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE")
 
@@ -50,9 +50,11 @@ ensure_testnet_identity() {
 }
 
 build_contracts() {
-  cd "$CONTRACT_DIR"
-  run rustup target add wasm32-unknown-unknown
-  run cargo build --target wasm32-unknown-unknown --release
+  (
+    cd "$CONTRACT_DIR"
+    run rustup target add wasm32-unknown-unknown
+    run cargo build --target wasm32-unknown-unknown --release
+  )
 }
 
 require_artifact() {

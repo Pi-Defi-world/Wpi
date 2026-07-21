@@ -13,9 +13,11 @@ RPC_URL="${STELLAR_RPC_URL:-}"
 DEPLOY_MOCKS="${DEPLOY_MOCKS:-false}"
 RATE_BPS="${RATE_BPS:-1000000}"
 
-WPI_WASM="${WPI_WASM:-target/wasm32-unknown-unknown/release/wpi_token.wasm}"
-USDC_WASM="${USDC_WASM:-target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
-AMM_WASM="${AMM_WASM:-target/wasm32-unknown-unknown/release/mock_amm.wasm}"
+WPI_WASM="${WPI_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/wpi_token.wasm}"
+USDC_WASM="${USDC_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
+AMM_WASM="${AMM_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_amm.wasm}"
+
+NETWORK_ARGS=(--network "$NETWORK" --rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE")
 
 run() {
   echo "+ $*"
@@ -27,10 +29,6 @@ ensure_cli() {
     echo "ERROR: Stellar CLI not found. Set STELLAR_CLI or install stellar-cli." >&2
     exit 1
   fi
-}
-
-network_args() {
-  printf '%s\n' --network "$NETWORK" --rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE"
 }
 
 require_mainnet_inputs() {
@@ -55,9 +53,11 @@ require_mainnet_inputs() {
 }
 
 build_contracts() {
-  cd "$CONTRACT_DIR"
-  run rustup target add wasm32-unknown-unknown
-  run cargo build --target wasm32-unknown-unknown --release
+  (
+    cd "$CONTRACT_DIR"
+    run rustup target add wasm32-unknown-unknown
+    run cargo build --target wasm32-unknown-unknown --release
+  )
 }
 
 require_artifact() {
@@ -72,15 +72,12 @@ upload_wasm() {
   local label="$1"
   local wasm="$2"
   local hash
-  local args
-
-  mapfile -t args < <(network_args)
   echo "== Upload ${label} WASM ==" >&2
   require_artifact "$wasm"
   hash="$("$CLI" contract upload \
     --wasm "$wasm" \
     --source-account "$SOURCE_ACCOUNT" \
-    "${args[@]}" | tail -n 1)"
+    "${NETWORK_ARGS[@]}" | tail -n 1)"
   echo "${label}_WASM_HASH=${hash}" >&2
   printf '%s' "$hash"
 }
@@ -89,28 +86,24 @@ deploy_uploaded_wasm() {
   local label="$1"
   local wasm_hash="$2"
   local contract_id
-  local args
-
-  mapfile -t args < <(network_args)
   echo "== Deploy ${label} contract ==" >&2
   contract_id="$("$CLI" contract deploy \
     --wasm-hash "$wasm_hash" \
     --source-account "$SOURCE_ACCOUNT" \
-    "${args[@]}" | tail -n 1)"
+    "${NETWORK_ARGS[@]}" | tail -n 1)"
   echo "${label}_CONTRACT_ID=${contract_id}" >&2
   printf '%s' "$contract_id"
 }
 
 invoke_contract() {
   local contract_id="$1"
-  local args
   shift
 
-  mapfile -t args < <(network_args)
-  run "$CLI" contract invoke \
+  echo "== Invoke contract ${contract_id} ==" >&2
+  "$CLI" contract invoke \
     --id "$contract_id" \
     --source-account "$SOURCE_ACCOUNT" \
-    "${args[@]}" \
+    "${NETWORK_ARGS[@]}" \
     -- "$@"
 }
 
@@ -118,7 +111,7 @@ ensure_cli
 require_mainnet_inputs
 build_contracts
 
-echo "Admin identity: ${SOURCE_ACCOUNT}"
+echo "Mainnet signing identity configured."
 echo "Admin address:  ${ADMIN_ADDRESS}"
 
 WPI_HASH="$(upload_wasm WPI "$WPI_WASM")"
