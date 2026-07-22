@@ -34,6 +34,13 @@ pub enum DataKey {
 }
 
 #[contracttype]
+#[derive(Clone)]
+pub struct AllowanceData {
+    pub amount: i128,
+    pub expiration_ledger: u32,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VolumeLimitConfig {
     pub mint_limit: i128,
@@ -72,6 +79,7 @@ pub enum Error {
     InvalidVolumeLimit = 8,
     CircuitBreakerActive = 9,
     InvalidAmount = 10,
+    InvalidExpirationLedger = 11,
 }
 
 #[contractevent]
@@ -200,16 +208,32 @@ fn write_balance(env: &Env, address: &Address, amount: i128) {
 }
 
 fn read_allowance(env: &Env, owner: &Address, spender: &Address) -> i128 {
-    env.storage()
+    let allowance = env
+        .storage()
         .instance()
-        .get::<DataKey, i128>(&DataKey::Allowance(owner.clone(), spender.clone()))
-        .unwrap_or(0)
+        .get::<DataKey, AllowanceData>(&DataKey::Allowance(owner.clone(), spender.clone()));
+    match allowance {
+        Some(data) if data.expiration_ledger >= env.ledger().sequence() => data.amount,
+        _ => 0,
+    }
 }
 
-fn write_allowance(env: &Env, owner: &Address, spender: &Address, amount: i128) {
+fn write_allowance(
+    env: &Env,
+    owner: &Address,
+    spender: &Address,
+    amount: i128,
+    expiration_ledger: u32,
+) {
     env.storage()
         .instance()
-        .set(&DataKey::Allowance(owner.clone(), spender.clone()), &amount);
+        .set(
+            &DataKey::Allowance(owner.clone(), spender.clone()),
+            &AllowanceData {
+                amount,
+                expiration_ledger,
+            },
+        );
 }
 
 fn read_total_supply(env: &Env) -> i128 {
@@ -507,15 +531,24 @@ impl WpiToken {
         Ok(())
     }
 
-    pub fn approve(env: Env, owner: Address, spender: Address, amount: i128) -> Result<(), Error> {
+    pub fn approve(
+        env: Env,
+        owner: Address,
+        spender: Address,
+        amount: i128,
+        expiration_ledger: u32,
+    ) -> Result<(), Error> {
         if is_paused(&env) {
             return Err(Error::Paused);
         }
         if amount < 0 {
             return Err(Error::InvalidAmount);
         }
+        if amount != 0 && expiration_ledger < env.ledger().sequence() {
+            return Err(Error::InvalidExpirationLedger);
+        }
         owner.require_auth();
-        write_allowance(&env, &owner, &spender, amount);
+        write_allowance(&env, &owner, &spender, amount, expiration_ledger);
         Ok(())
     }
 
@@ -546,8 +579,64 @@ impl WpiToken {
             return Err(Error::InsufficientAllowance);
         }
         transfer_internal(&env, &from, &to, amount)?;
-        write_allowance(&env, &from, &spender, allowance - amount);
+        let expiration_ledger = env
+            .storage()
+            .instance()
+            .get::<DataKey, AllowanceData>(&DataKey::Allowance(from.clone(), spender.clone()))
+            .map(|data| data.expiration_ledger)
+            .unwrap_or(0);
+        write_allowance(
+            &env,
+            &from,
+            &spender,
+            allowance - amount,
+            expiration_ledger,
+        );
         Ok(())
+    }
+
+    pub fn burn_from(
+        env: Env,
+        spender: Address,
+        from: Address,
+        amount: i128,
+    ) -> Result<bool, Error> {
+        if is_paused(&env) {
+            return Err(Error::Paused);
+        }
+        if amount < 0 {
+            return Err(Error::InvalidAmount);
+        }
+        spender.require_auth();
+        let allowance = read_allowance(&env, &from, &spender);
+        if allowance < amount {
+            return Err(Error::InsufficientAllowance);
+        }
+        let balance = read_balance(&env, &from);
+        if balance < amount {
+            return Err(Error::InsufficientBalance);
+        }
+        let supply = read_total_supply(&env);
+        let new_supply = supply.checked_sub(amount).ok_or(Error::Overflow)?;
+        if !record_bridge_volume(&env, symbol_short!("burn"), amount)? {
+            return Ok(false);
+        }
+        let expiration_ledger = env
+            .storage()
+            .instance()
+            .get::<DataKey, AllowanceData>(&DataKey::Allowance(from.clone(), spender.clone()))
+            .map(|data| data.expiration_ledger)
+            .unwrap_or(0);
+        write_allowance(
+            &env,
+            &from,
+            &spender,
+            allowance - amount,
+            expiration_ledger,
+        );
+        write_balance(&env, &from, balance - amount);
+        write_total_supply(&env, new_supply);
+        Ok(true)
     }
 
     /// Administrative mint. It uses the same bridge-wide mint counter as
