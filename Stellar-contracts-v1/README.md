@@ -45,6 +45,15 @@ The testnet script deploys and initializes `wpi-token`, `mock-usdc`, and
 `mock-amm`. The mainnet script deploys only `wpi-token` by default; set
 `DEPLOY_MOCKS=true` only when intentionally deploying the mock contracts.
 
+### Emergency pause behavior
+
+The pause flag is a full emergency stop for token state changes. While paused,
+`approve`, `transfer`, `transfer_from`, `mint`, and `burn` return `Paused` in
+both `wpi-token` and contracts built on `soroban-token-common`. Read-only calls
+remain available. Only an authorized admin can change the pause state; for a
+volume-limit halt, governance must use the auditable override flow described
+below before activity can resume.
+
 ### Configure the wPi bridge volume circuit breaker
 
 `wpi-token` fails closed: mint and burn calls return

@@ -141,6 +141,9 @@ pub fn initialize_token(env: &Env, admin: &Address) {
 
 pub fn mint_token(env: &Env, admin: &Address, to: &Address, amount: i128) -> Result<(), Error> {
     check_admin(env, admin)?;
+    if is_paused(env) {
+        return Err(Error::Paused);
+    }
     if amount <= 0 {
         return Ok(());
     }
@@ -153,6 +156,9 @@ pub fn mint_token(env: &Env, admin: &Address, to: &Address, amount: i128) -> Res
 
 pub fn burn_token(env: &Env, admin: &Address, from: &Address, amount: i128) -> Result<(), Error> {
     check_admin(env, admin)?;
+    if is_paused(env) {
+        return Err(Error::Paused);
+    }
     if amount <= 0 {
         return Ok(());
     }

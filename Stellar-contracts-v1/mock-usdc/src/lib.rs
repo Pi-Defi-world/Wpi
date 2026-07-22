@@ -18,6 +18,9 @@ pub const DECIMALS: u32 = 7;
 #[contract]
 pub struct MockUsdcToken;
 
+#[cfg(test)]
+mod test;
+
 #[contractimpl]
 impl MockUsdcToken {
     pub fn initialize(env: Env, admin: Address) {
