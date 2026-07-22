@@ -17,19 +17,34 @@ that releases Pi on wPi redemption, lives in [`../relayer`](../relayer/README.md
 
 ## Build
 
+From the repository root:
+
 ```bash
-cd Stellar-contracts-v1
-cargo build --target wasm32-unknown-unknown --release
+make build
 ```
 
-Artifacts: `target/wasm32-unknown-unknown/release/*.wasm`
+Artifacts: `Stellar-contracts-v1/target/wasm32-unknown-unknown/release/*.wasm`
 
-## Deploy (Stellar testnet)
+## Deploy
 
-Use Stellar CLI / Soroban with Stellar testnet RPC and passphrase `Test SDF Network ; September 2015`.  
-Initialize wPi with `initialize(admin_address)`. Initialize the AMM with
-`initialize(admin_address, wpi_contract_id, rate_bps)`; it selects USDC from
-the ledger network ID derived from the network passphrase.
+Use the checked-in deployment scripts from the repository root. They build the
+WASM artifacts, upload each contract with the Stellar CLI, deploy from the
+uploaded WASM hash, and initialize the contracts.
+
+```bash
+make deploy-testnet
+```
+
+For mainnet, provide the signing identity and RPC endpoint explicitly:
+
+```bash
+STELLAR_ACCOUNT=<identity> STELLAR_RPC_URL=<mainnet-rpc-url> make deploy-mainnet
+```
+
+The testnet script deploys and initializes `wpi-token` and `mock-amm`; the AMM
+selects the network's real USDC SAC from the ledger network ID. The mainnet
+script deploys only `wpi-token` by default; set `DEPLOY_AMM=true` to deploy the
+AMM against mainnet USDC as well.
 
 ### Configure the wPi bridge volume circuit breaker
 
