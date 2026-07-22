@@ -19,7 +19,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WASM_DIR="${REPO_ROOT}/Stellar-contracts-v1/target/wasm32-unknown-unknown/release"
 BASELINE="${REPO_ROOT}/Stellar-contracts-v1/wasm-size-baseline.json"
 
-CONTRACTS=("wpi_token" "mock_usdc" "mock_amm")
+CONTRACTS=("wpi_token" "mock_amm")
 
 echo "=== Updating WASM size baseline ==="
 echo ""

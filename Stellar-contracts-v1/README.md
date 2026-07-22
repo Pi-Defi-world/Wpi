@@ -8,7 +8,7 @@ that releases Pi on wPi redemption, lives in [`../relayer`](../relayer/README.md
 | Crate        | WASM artifact   | Purpose                                      |
 |-------------|-----------------|----------------------------------------------|
 | `wpi-token` | `wpi_token.wasm` | Wrapped Pi minted by the relayer after Pi deposits |
-| `mock-usdc` | `mock_usdc.wasm` | Test-only USDC stand-in for AMM / reserve sims |
+| `mock-amm` | `mock_amm.wasm` | Test AMM that swaps wPi against the network's real USDC SAC |
 
 ## Requirements
 
@@ -41,9 +41,10 @@ For mainnet, provide the signing identity and RPC endpoint explicitly:
 STELLAR_ACCOUNT=<identity> STELLAR_RPC_URL=<mainnet-rpc-url> make deploy-mainnet
 ```
 
-The testnet script deploys and initializes `wpi-token`, `mock-usdc`, and
-`mock-amm`. The mainnet script deploys only `wpi-token` by default; set
-`DEPLOY_MOCKS=true` only when intentionally deploying the mock contracts.
+The testnet script deploys and initializes `wpi-token` and `mock-amm`; the AMM
+selects the network's real USDC SAC from the ledger network ID. The mainnet
+script deploys only `wpi-token` by default; set `DEPLOY_AMM=true` to deploy the
+AMM against mainnet USDC as well.
 
 ### Configure the wPi bridge volume circuit breaker
 
@@ -113,8 +114,25 @@ Set backend env:
 
 - `STELLAR_SOROBAN_RPC_URL` — e.g. `https://soroban-testnet.stellar.org`
 - `STELLAR_NETWORK_PASSPHRASE` — Stellar testnet passphrase
-- `WPI_CONTRACT_ID` / `MOCK_USDC_CONTRACT_ID` — deployed contract IDs
+- `WPI_CONTRACT_ID` — deployed wPi contract ID
+- `USDC_CONTRACT_ID` — selected network USDC SAC (do not deploy it)
 - `BRIDGE_STELLAR_ADMIN_SECRET_KEY` — admin key that mints wPi (keep offline in production)
+
+## Real USDC SAC
+
+The AMM uses `soroban_sdk::token::Client` with the canonical Stellar Asset
+Contract for Circle-issued USDC. It resolves the address at runtime from
+`env.ledger().network_id()`:
+
+| Network | Passphrase | Circle USDC issuer | USDC SAC |
+|---|---|---|---|
+| Testnet | `Test SDF Network ; September 2015` | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` | `CAQCMV4JFG4EZXQEAV7TUV2E52DMSO2LQKBOSA7UM3B4NIP4DQJ3JHQJ` |
+| Mainnet | `Public Global Stellar Network ; September 2015` | `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` | `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75` |
+
+Mainnet values were checked against Stellar Expert's Circle USDC record.
+Unsupported networks fail initialization instead of selecting the wrong asset.
+Offline tests register a local SAC with
+`env.register_stellar_asset_contract_v2(...)`.
 
 
 
@@ -127,7 +145,12 @@ cd Stellar-contracts-v1
 ./scripts/quickstart.sh
 ```
 
-The script deploys `wpi-token`, `mock-usdc`, and `mock-amm`, then runs initialize → mint → approve → transfer → liquidity deposit → swap. Override identities, amounts, or network settings with environment variables such as `ADMIN_IDENTITY`, `RECIPIENT_IDENTITY`, `RPC_URL`, `MINT_AMOUNT`, and `SWAP_AMOUNT`.
+The script deploys `wpi-token` and `mock-amm`, then runs initialize → mint wPi
+→ transfer → real-USDC liquidity deposit → swap. The admin identity must
+already hold enough testnet USDC, available from Circle's faucet. Override
+identities, amounts, or network settings with environment variables such as
+`ADMIN_IDENTITY`, `RECIPIENT_IDENTITY`, `RPC_URL`, `MINT_AMOUNT`, and
+`SWAP_AMOUNT`.
 
 These same values, plus the Pi Network side, configure the relayer — see
 [`../relayer/.env.example`](../relayer/.env.example).
@@ -140,7 +163,6 @@ CI reports the compiled WASM size for each contract on every PR and compares it 
 | Contract | Baseline file key |
 |---|---|
 | `wpi-token` | `wpi_token` |
-| `mock-usdc` | `mock_usdc` |
 | `mock-amm` | `mock_amm` |
 
 A contract that grows by more than **5 %** relative to its baseline will fail the `Check WASM size regressions` step. The full size table and diff are posted to the **Job Summary** tab in GitHub Actions.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# End-to-end Stellar testnet walkthrough for wPI, mock USDC, and mock AMM.
-# Flow: deploy -> initialize -> mint -> approve -> transfer -> swap.
+# End-to-end Stellar testnet walkthrough for wPI, real USDC, and mock AMM.
+# Flow: deploy -> initialize -> mint wPI -> transfer -> seed USDC -> swap.
 #
 # The script is intentionally verbose: every real CLI command is echoed before it
 # runs, followed by the expected shape of the successful output. It is safe to run
@@ -26,13 +26,13 @@ NETWORK="${NETWORK:-testnet}"
 RPC_URL="${RPC_URL:-https://soroban-testnet.stellar.org}"
 NETWORK_PASSPHRASE="${NETWORK_PASSPHRASE:-Test SDF Network ; September 2015}"
 WPI_WASM="${WPI_WASM:-target/wasm32-unknown-unknown/release/wpi_token.wasm}"
-USDC_WASM="${USDC_WASM:-target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
+USDC_CONTRACT_ID="${USDC_CONTRACT_ID:-CAQCMV4JFG4EZXQEAV7TUV2E52DMSO2LQKBOSA7UM3B4NIP4DQJ3JHQJ}"
 AMM_WASM="${AMM_WASM:-target/wasm32-unknown-unknown/release/mock_amm.wasm}"
 MINT_AMOUNT="${MINT_AMOUNT:-1000000000}"       # 100.0000000 tokens
 TRANSFER_AMOUNT="${TRANSFER_AMOUNT:-10000000}" # 1.0000000 token
 SWAP_AMOUNT="${SWAP_AMOUNT:-50000000}"         # 5.0000000 wPI
-MIN_AMOUNT_OUT="${MIN_AMOUNT_OUT:-50000000}"   # 5.0000000 mUSDC
-LIQUIDITY_AMOUNT="${LIQUIDITY_AMOUNT:-500000000}" # 50.0000000 mUSDC
+MIN_AMOUNT_OUT="${MIN_AMOUNT_OUT:-50000000}"   # 5.0000000 USDC
+LIQUIDITY_AMOUNT="${LIQUIDITY_AMOUNT:-500000000}" # 50.0000000 USDC
 RATE_BPS="${RATE_BPS:-1000000}" # 1:1 because mock-amm computes out = in * rate / 1_000_000
 
 if command -v stellar >/dev/null 2>&1; then
@@ -118,9 +118,8 @@ echo
 echo "== Build WASM artifacts =="
 run rustup target add wasm32-unknown-unknown
 run cargo build --target wasm32-unknown-unknown --release
-expected "Finished release build and three WASM files under target/wasm32-unknown-unknown/release/."
+expected "Finished release build and two WASM files under target/wasm32-unknown-unknown/release/."
 require_artifact "$WPI_WASM"
-require_artifact "$USDC_WASM"
 require_artifact "$AMM_WASM"
 
 echo
@@ -129,11 +128,6 @@ WPI_CONTRACT_ID="$("${CLI[@]}" contract deploy --wasm "$WPI_WASM" --source-accou
 echo "+ ${CLI[*]} contract deploy --wasm $WPI_WASM --source-account $ADMIN_IDENTITY --network $NETWORK"
 expected "wPI contract ID"
 echo "WPI_CONTRACT_ID=$WPI_CONTRACT_ID"
-
-USDC_CONTRACT_ID="$("${CLI[@]}" contract deploy --wasm "$USDC_WASM" --source-account "$ADMIN_IDENTITY" --network "$NETWORK")"
-echo "+ ${CLI[*]} contract deploy --wasm $USDC_WASM --source-account $ADMIN_IDENTITY --network $NETWORK"
-expected "mock USDC contract ID"
-echo "MOCK_USDC_CONTRACT_ID=$USDC_CONTRACT_ID"
 
 AMM_CONTRACT_ID="$("${CLI[@]}" contract deploy --wasm "$AMM_WASM" --source-account "$ADMIN_IDENTITY" --network "$NETWORK")"
 echo "+ ${CLI[*]} contract deploy --wasm $AMM_WASM --source-account $ADMIN_IDENTITY --network $NETWORK"
@@ -144,18 +138,13 @@ echo
 echo "== Initialize contracts =="
 invoke "$WPI_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
 expected "null/success"
-invoke "$USDC_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
-expected "null/success"
-invoke "$AMM_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS" --token_in "$WPI_CONTRACT_ID" --token_out "$USDC_CONTRACT_ID" --rate_bps "$RATE_BPS"
+invoke "$AMM_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS" --token_in "$WPI_CONTRACT_ID" --rate_bps "$RATE_BPS"
 expected "null/success"
 
 echo
 echo "== Mint balances =="
 invoke "$WPI_CONTRACT_ID" mint --admin "$ADMIN_ADDRESS" --to "$ADMIN_ADDRESS" --amount "$MINT_AMOUNT"
 expected "Ok/null; admin now has 100.0000000 wPI by default."
-invoke "$USDC_CONTRACT_ID" mint --admin "$ADMIN_ADDRESS" --to "$ADMIN_ADDRESS" --amount "$MINT_AMOUNT"
-expected "Ok/null; admin now has 100.0000000 mUSDC by default."
-
 echo
 echo "== Approve the mock AMM to spend wPI =="
 invoke "$WPI_CONTRACT_ID" approve --owner "$ADMIN_ADDRESS" --spender "$AMM_CONTRACT_ID" --amount "$SWAP_AMOUNT"
@@ -167,16 +156,15 @@ invoke "$WPI_CONTRACT_ID" transfer --from "$ADMIN_ADDRESS" --to "$RECIPIENT_ADDR
 expected "Ok/null; recipient receives 1.0000000 wPI by default."
 
 echo
-echo "== Seed AMM liquidity with mock USDC =="
-invoke "$USDC_CONTRACT_ID" approve --owner "$ADMIN_ADDRESS" --spender "$AMM_CONTRACT_ID" --amount "$LIQUIDITY_AMOUNT"
-expected "Ok/null; AMM allowance is $LIQUIDITY_AMOUNT stroops of mUSDC."
+echo "== Seed AMM liquidity with real USDC =="
+echo "The admin must hold at least $LIQUIDITY_AMOUNT stroops of testnet USDC (fund via Circle's faucet)."
 invoke "$AMM_CONTRACT_ID" deposit_liquidity --from "$ADMIN_ADDRESS" --amount_out "$LIQUIDITY_AMOUNT"
-expected "null/success; AMM holds 50.0000000 mUSDC by default."
+expected "null/success; AMM holds 50.0000000 USDC by default."
 
 echo
-echo "== Swap wPI for mock USDC =="
+echo "== Swap wPI for real USDC =="
 invoke "$AMM_CONTRACT_ID" swap --to "$ADMIN_ADDRESS" --amount_in "$SWAP_AMOUNT" --min_amount_out "$MIN_AMOUNT_OUT"
-expected "$MIN_AMOUNT_OUT (5.0000000 mUSDC by default)."
+expected "$MIN_AMOUNT_OUT (5.0000000 USDC by default)."
 
 echo
 echo "== Verify balances =="
@@ -187,5 +175,5 @@ invoke "$WPI_CONTRACT_ID" balance --owner "$RECIPIENT_ADDRESS"
 echo
 echo "Quickstart complete. Export these for backend/test clients:"
 echo "export WPI_CONTRACT_ID=$WPI_CONTRACT_ID"
-echo "export MOCK_USDC_CONTRACT_ID=$USDC_CONTRACT_ID"
+echo "export USDC_CONTRACT_ID=$USDC_CONTRACT_ID"
 echo "export MOCK_AMM_CONTRACT_ID=$AMM_CONTRACT_ID"

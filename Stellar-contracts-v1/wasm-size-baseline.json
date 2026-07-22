@@ -2,6 +2,5 @@
   "_comment": "WASM size baseline in bytes. CI fails if any contract grows by more than WASM_SIZE_THRESHOLD_PCT (default 5%).",
   "_update_instructions": "Run `bash scripts/update_wasm_baseline.sh` from the repo root after a clean release build, then commit the result.",
   "wpi_token": 0,
-  "mock_usdc": 0,
   "mock_amm": 0
 }

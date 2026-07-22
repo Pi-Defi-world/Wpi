@@ -12,7 +12,6 @@ SOURCE_ACCOUNT="${STELLAR_ACCOUNT:-${ADMIN_IDENTITY:-wpi-testnet-admin}}"
 RATE_BPS="${RATE_BPS:-1000000}"
 
 WPI_WASM="${WPI_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/wpi_token.wasm}"
-USDC_WASM="${USDC_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
 AMM_WASM="${AMM_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_amm.wasm}"
 
 NETWORK_ARGS=(--network "$NETWORK" --rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE")
@@ -115,25 +114,19 @@ echo "Admin address:  ${ADMIN_ADDRESS}"
 WPI_HASH="$(upload_wasm WPI "$WPI_WASM")"
 WPI_CONTRACT_ID="$(deploy_uploaded_wasm WPI "$WPI_HASH")"
 
-USDC_HASH="$(upload_wasm MOCK_USDC "$USDC_WASM")"
-MOCK_USDC_CONTRACT_ID="$(deploy_uploaded_wasm MOCK_USDC "$USDC_HASH")"
-
 AMM_HASH="$(upload_wasm MOCK_AMM "$AMM_WASM")"
 MOCK_AMM_CONTRACT_ID="$(deploy_uploaded_wasm MOCK_AMM "$AMM_HASH")"
 
 echo "== Initialize contracts =="
 invoke_contract "$WPI_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
-invoke_contract "$MOCK_USDC_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
 invoke_contract "$MOCK_AMM_CONTRACT_ID" initialize \
   --admin "$ADMIN_ADDRESS" \
   --token_in "$WPI_CONTRACT_ID" \
-  --token_out "$MOCK_USDC_CONTRACT_ID" \
   --rate_bps "$RATE_BPS"
 
 cat <<EOF
 
 Testnet deployment complete.
 export WPI_CONTRACT_ID=${WPI_CONTRACT_ID}
-export MOCK_USDC_CONTRACT_ID=${MOCK_USDC_CONTRACT_ID}
 export MOCK_AMM_CONTRACT_ID=${MOCK_AMM_CONTRACT_ID}
 EOF

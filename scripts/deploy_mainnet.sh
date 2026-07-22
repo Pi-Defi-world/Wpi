@@ -10,11 +10,10 @@ NETWORK_PASSPHRASE="${STELLAR_NETWORK_PASSPHRASE:-Public Global Stellar Network 
 SOURCE_ACCOUNT="${STELLAR_ACCOUNT:-${ADMIN_IDENTITY:-}}"
 ADMIN_ADDRESS="${ADMIN_ADDRESS:-}"
 RPC_URL="${STELLAR_RPC_URL:-}"
-DEPLOY_MOCKS="${DEPLOY_MOCKS:-false}"
+DEPLOY_AMM="${DEPLOY_AMM:-false}"
 RATE_BPS="${RATE_BPS:-1000000}"
 
 WPI_WASM="${WPI_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/wpi_token.wasm}"
-USDC_WASM="${USDC_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_usdc.wasm}"
 AMM_WASM="${AMM_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_amm.wasm}"
 
 NETWORK_ARGS=(--network "$NETWORK" --rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE")
@@ -120,19 +119,14 @@ WPI_CONTRACT_ID="$(deploy_uploaded_wasm WPI "$WPI_HASH")"
 echo "== Initialize wPI contract =="
 invoke_contract "$WPI_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
 
-if [[ "$DEPLOY_MOCKS" == "true" ]]; then
-  USDC_HASH="$(upload_wasm MOCK_USDC "$USDC_WASM")"
-  MOCK_USDC_CONTRACT_ID="$(deploy_uploaded_wasm MOCK_USDC "$USDC_HASH")"
-
+if [[ "$DEPLOY_AMM" == "true" ]]; then
   AMM_HASH="$(upload_wasm MOCK_AMM "$AMM_WASM")"
   MOCK_AMM_CONTRACT_ID="$(deploy_uploaded_wasm MOCK_AMM "$AMM_HASH")"
 
-  echo "== Initialize optional mock contracts =="
-  invoke_contract "$MOCK_USDC_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
+  echo "== Initialize optional AMM contract =="
   invoke_contract "$MOCK_AMM_CONTRACT_ID" initialize \
     --admin "$ADMIN_ADDRESS" \
     --token_in "$WPI_CONTRACT_ID" \
-    --token_out "$MOCK_USDC_CONTRACT_ID" \
     --rate_bps "$RATE_BPS"
 fi
 
@@ -142,9 +136,8 @@ Mainnet deployment complete.
 export WPI_CONTRACT_ID=${WPI_CONTRACT_ID}
 EOF
 
-if [[ "$DEPLOY_MOCKS" == "true" ]]; then
+if [[ "$DEPLOY_AMM" == "true" ]]; then
   cat <<EOF
-export MOCK_USDC_CONTRACT_ID=${MOCK_USDC_CONTRACT_ID}
 export MOCK_AMM_CONTRACT_ID=${MOCK_AMM_CONTRACT_ID}
 EOF
 fi
