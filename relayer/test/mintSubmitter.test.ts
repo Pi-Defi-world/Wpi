@@ -119,6 +119,29 @@ describe('MintSubmitter', () => {
     expect(store.getDeposit('deposit-1')?.status).toBe('minted');
   });
 
+  it('keeps a rate-limited deposit pending for retry instead of marking it minted', async () => {
+    const contract = new FakeContractClient();
+    contract.outcomeOverride = { minted: false, rateLimited: true, txHash: 'breaker-tx' };
+    const store = new MemoryStore();
+    store.upsertDeposit({
+      piTxId: 'pi-tx-1',
+      depositId: 'deposit-1',
+      amountStroops: '1000',
+      destinationStellarAddress: 'GDEST',
+      observedAtLedger: 90,
+      status: 'confirmed',
+      updatedAt: new Date(0).toISOString(),
+    });
+    const submitter = new MintSubmitter(contract, store, silentLogger);
+
+    await submitter.submit(confirmedDeposit());
+
+    const record = store.getDeposit('deposit-1');
+    expect(record?.status).toBe('failed');
+    expect(record?.mintTxHash).toBe('breaker-tx');
+    expect(record?.lastError).toContain('volume limit');
+  });
+
   it('marks a deposit failed (not minted) when submission throws, and retryOutstanding recovers it', async () => {
     const contract = new FakeContractClient();
     contract.throwOnce = true;

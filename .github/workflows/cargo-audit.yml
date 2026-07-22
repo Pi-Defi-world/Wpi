@@ -1,0 +1,41 @@
+name: Cargo Audit
+
+on:
+  pull_request:
+    paths:
+      - 'Stellar-contracts-v1/Cargo.lock'
+      - 'Stellar-contracts-v1/Cargo.toml'
+  push:
+    branches: [main]
+    paths:
+      - 'Stellar-contracts-v1/Cargo.lock'
+      - 'Stellar-contracts-v1/Cargo.toml'
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  audit:
+    name: Advisory check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Stellar-contracts-v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.88.0"
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Cache advisory database
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/advisory-db
+          key: cargo-advisory-db
+
+      - name: cargo audit
+        run: cargo audit --deny warnings

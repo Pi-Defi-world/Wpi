@@ -38,6 +38,16 @@ export class MintSubmitter {
           depositId: deposit.depositId,
           txHash: outcome.txHash,
         });
+      } else if ('rateLimited' in outcome) {
+        this.store.updateDepositStatus(deposit.depositId, 'failed', {
+          mintTxHash: outcome.txHash,
+          lastError: 'bridge volume limit triggered; waiting for multisig override',
+        });
+        this.log.warn('mint blocked by bridge volume circuit breaker', {
+          piTxId: deposit.piTxId,
+          depositId: deposit.depositId,
+          txHash: outcome.txHash,
+        });
       } else {
         this.store.updateDepositStatus(deposit.depositId, 'minted');
         this.log.info('deposit was already minted; treating as success', {

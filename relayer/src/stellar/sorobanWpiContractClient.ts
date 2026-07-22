@@ -66,6 +66,10 @@ export class SorobanWpiContractClient implements WpiContractClient {
       });
       const sent = await tx.signAndSend();
       const hash = sent.sendTransactionResponse?.hash ?? sent.getTransactionResponse?.txHash ?? '';
+      const minted = (sent.result ?? tx.result) as boolean;
+      if (!minted) {
+        return { minted: false, rateLimited: true, txHash: hash };
+      }
       return { minted: true, txHash: hash };
     } catch (err) {
       // The submission's outcome is ambiguous from here (it may have

@@ -1,6 +1,9 @@
 import type { BurnEvent } from '../types.js';
 
-export type MintOutcome = { minted: true; txHash: string } | { minted: false; alreadyProcessed: true };
+export type MintOutcome =
+  | { minted: true; txHash: string }
+  | { minted: false; alreadyProcessed: true }
+  | { minted: false; rateLimited: true; txHash: string };
 
 /**
  * Abstraction over the on-chain wPi Soroban contract (see
@@ -11,9 +14,9 @@ export type MintOutcome = { minted: true; txHash: string } | { minted: false; al
  */
 export interface WpiContractClient {
   /**
-   * Submits `mint_from_deposit`. Resolves `{ minted: false, alreadyProcessed: true }`
-   * instead of throwing when the deposit id was already minted (by this
-   * call or an earlier, possibly crashed, attempt) — see `isDepositProcessed`.
+   * Submits `mint_from_deposit`. A committed circuit-breaker rejection is
+   * returned as `{ minted: false, rateLimited: true }` so the deposit stays
+   * pending, while an idempotent retry returns `alreadyProcessed`.
    */
   mintFromDeposit(args: {
     to: string;

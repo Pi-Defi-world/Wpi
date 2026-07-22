@@ -31,6 +31,70 @@ Initialize wPi with `initialize(admin_address)`. Initialize the AMM with
 `initialize(admin_address, wpi_contract_id, rate_bps)`; it selects USDC from
 the ledger network ID derived from the network passphrase.
 
+### Configure the wPi bridge volume circuit breaker
+
+`wpi-token` fails closed: mint and burn calls return
+`VolumeLimitsNotConfigured` until the admin configures positive limits. Amounts
+are expressed in wPi stroops (7 decimals), and the window is expressed in
+seconds. Immediately after initialization, transfer the independent limit-admin
+role from the deployer to the bridge multisig or governance contract:
+
+```bash
+stellar contract invoke \
+  --id "$WPI_CONTRACT_ID" \
+  --source "$ADMIN_IDENTITY" \
+  --network testnet \
+  -- \
+  set_volume_limit_admin \
+  --admin "$ADMIN_ADDRESS" \
+  --new_admin "$MULTISIG_ADDRESS"
+```
+
+The multisig then configures a 24-hour window:
+
+```bash
+stellar contract invoke \
+  --id "$WPI_CONTRACT_ID" \
+  --source "$MULTISIG_IDENTITY" \
+  --network testnet \
+  -- \
+  configure_volume_limits \
+  --admin "$MULTISIG_ADDRESS" \
+  --mint_limit 10000000000000 \
+  --burn_limit 10000000000000 \
+  --window_seconds 86400
+```
+
+The contract maintains separate mint and burn totals using a bounded rolling
+window with up to 24 subdivisions plus one conservative boundary bucket. An
+operation that reaches the threshold is accepted and pauses the contract; an
+operation that would exceed it returns `false` without changing balances or
+marking its deposit processed. Both paths emit `VolumeLimitTriggered`, whose
+`accepted` field distinguishes them, and later operations return `Paused`.
+The over-limit call returns successfully at the transaction layer so the pause
+and alert event are committed atomically instead of being rolled back; the
+relayer reads the boolean result and keeps a rejected deposit pending for retry.
+
+Only the address stored as `volume_limit_admin` can lift this halt. This role is
+separate from the bridge admin used for mint/burn, so a compromised relayer
+cannot reconfigure or clear the limit after governance has taken ownership.
+After review and multisig approval, it calls:
+
+```bash
+stellar contract invoke \
+  --id "$WPI_CONTRACT_ID" \
+  --source "$MULTISIG_IDENTITY" \
+  --network testnet \
+  -- \
+  override_volume_limit \
+  --admin "$MULTISIG_ADDRESS"
+```
+
+`override_volume_limit` clears both rolling totals, starts a fresh window,
+unpauses the contract, and emits `VolumeLimitOverride`. Calling
+`set_paused(..., false)` while the circuit breaker is active is rejected, so
+the auditable override path cannot be bypassed.
+
 Set backend env:
 
 - `STELLAR_SOROBAN_RPC_URL` — e.g. `https://soroban-testnet.stellar.org`
