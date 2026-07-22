@@ -225,15 +225,13 @@ fn write_allowance(
     amount: i128,
     expiration_ledger: u32,
 ) {
-    env.storage()
-        .instance()
-        .set(
-            &DataKey::Allowance(owner.clone(), spender.clone()),
-            &AllowanceData {
-                amount,
-                expiration_ledger,
-            },
-        );
+    env.storage().instance().set(
+        &DataKey::Allowance(owner.clone(), spender.clone()),
+        &AllowanceData {
+            amount,
+            expiration_ledger,
+        },
+    );
 }
 
 fn read_total_supply(env: &Env) -> i128 {
@@ -585,13 +583,7 @@ impl WpiToken {
             .get::<DataKey, AllowanceData>(&DataKey::Allowance(from.clone(), spender.clone()))
             .map(|data| data.expiration_ledger)
             .unwrap_or(0);
-        write_allowance(
-            &env,
-            &from,
-            &spender,
-            allowance - amount,
-            expiration_ledger,
-        );
+        write_allowance(&env, &from, &spender, allowance - amount, expiration_ledger);
         Ok(())
     }
 
@@ -627,13 +619,7 @@ impl WpiToken {
             .get::<DataKey, AllowanceData>(&DataKey::Allowance(from.clone(), spender.clone()))
             .map(|data| data.expiration_ledger)
             .unwrap_or(0);
-        write_allowance(
-            &env,
-            &from,
-            &spender,
-            allowance - amount,
-            expiration_ledger,
-        );
+        write_allowance(&env, &from, &spender, allowance - amount, expiration_ledger);
         write_balance(&env, &from, balance - amount);
         write_total_supply(&env, new_supply);
         Ok(true)

@@ -3,7 +3,9 @@
 //! Mock AMM pool for testing wPi -> MockUSDC swaps.
 //! Hardcodes a 1:1 swap rate (or configurable) for testnet simulation without complex math.
 
-use soroban_sdk::{contract, contracterror, contractimpl, contracttype, token, Address, BytesN, Env};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, token, Address, BytesN, Env,
+};
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
