@@ -15,9 +15,25 @@ Soroban contracts and operational docs for the **wrapped Pi (wPi)** bridge token
 ## Quick start (contracts)
 
 ```bash
-cd Stellar-contracts-v1
-cargo build --target wasm32-unknown-unknown --release
+make build
+make test
 ```
+
+Deploy to Stellar testnet with:
+
+```bash
+make deploy-testnet
+```
+
+This runs [`scripts/deploy_testnet.sh`](./scripts/deploy_testnet.sh).
+
+Mainnet deploys require an explicit signer and RPC endpoint:
+
+```bash
+STELLAR_ACCOUNT=<identity> STELLAR_RPC_URL=<mainnet-rpc-url> make deploy-mainnet
+```
+
+This runs [`scripts/deploy_mainnet.sh`](./scripts/deploy_mainnet.sh).
 
 See [`Stellar-contracts-v1/README.md`](./Stellar-contracts-v1/README.md).
 

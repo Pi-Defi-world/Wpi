@@ -17,17 +17,33 @@ that releases Pi on wPi redemption, lives in [`../relayer`](../relayer/README.md
 
 ## Build
 
+From the repository root:
+
 ```bash
-cd Stellar-contracts-v1
-cargo build --target wasm32-unknown-unknown --release
+make build
 ```
 
-Artifacts: `target/wasm32-unknown-unknown/release/*.wasm`
+Artifacts: `Stellar-contracts-v1/target/wasm32-unknown-unknown/release/*.wasm`
 
-## Deploy (Stellar testnet)
+## Deploy
 
-Use Stellar CLI / Soroban with Stellar testnet RPC and passphrase `Test SDF Network ; September 2015`.  
-Initialize each contract with `initialize(admin_address)` after upload.
+Use the checked-in deployment scripts from the repository root. They build the
+WASM artifacts, upload each contract with the Stellar CLI, deploy from the
+uploaded WASM hash, and initialize the contracts.
+
+```bash
+make deploy-testnet
+```
+
+For mainnet, provide the signing identity and RPC endpoint explicitly:
+
+```bash
+STELLAR_ACCOUNT=<identity> STELLAR_RPC_URL=<mainnet-rpc-url> make deploy-mainnet
+```
+
+The testnet script deploys and initializes `wpi-token`, `mock-usdc`, and
+`mock-amm`. The mainnet script deploys only `wpi-token` by default; set
+`DEPLOY_MOCKS=true` only when intentionally deploying the mock contracts.
 
 ### Configure the wPi bridge volume circuit breaker
 
