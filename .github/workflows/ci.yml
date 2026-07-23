@@ -35,13 +35,17 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: cargo test
-        run: cargo test --all
+        run: cargo test --locked --all
 
       - name: cargo build (wasm32, release)
-        run: cargo build --target wasm32-unknown-unknown --release
+        run: cargo build --locked --target wasm32-unknown-unknown --release
+
+      - name: Verify WASM dependency provenance
+        shell: bash
+        run: bash scripts/verify_dependency_provenance.sh
 
       - name: Report WASM sizes
         shell: bash
@@ -146,6 +150,7 @@ jobs:
           path: |
             Stellar-contracts-v1/target/wasm32-unknown-unknown/release/wpi_token.wasm
             Stellar-contracts-v1/target/wasm32-unknown-unknown/release/mock_amm.wasm
+            Stellar-contracts-v1/target/wasm32-unknown-unknown/release/wasm-provenance.json
             Stellar-contracts-v1/wasm-sizes.json
           if-no-files-found: warn
 

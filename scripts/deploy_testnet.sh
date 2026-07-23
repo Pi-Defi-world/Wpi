@@ -52,7 +52,8 @@ build_contracts() {
   (
     cd "$CONTRACT_DIR"
     run rustup target add wasm32-unknown-unknown
-    run cargo build --target wasm32-unknown-unknown --release
+    run cargo build --locked --target wasm32-unknown-unknown --release
+    run bash scripts/verify_dependency_provenance.sh
   )
 }
 
