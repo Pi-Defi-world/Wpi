@@ -54,6 +54,9 @@ fn pause_blocks_mint_and_burn_and_unpause_restores_both() {
         client.try_mint(&admin, &holder, &25),
         Err(Ok(Error::Paused))
     );
+    assert_eq!(client.balance(&holder), 100);
+    assert_eq!(client.total_supply(), 100);
+
     assert_eq!(
         client.try_burn(&admin, &holder, &25),
         Err(Ok(Error::Paused))
