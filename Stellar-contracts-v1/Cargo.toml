@@ -14,3 +14,16 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
+
+# Backports for the Soroban 23 dependency graph. These exact revisions replace
+# the unmaintained crates reported by RUSTSEC-2024-0388 and RUSTSEC-2024-0436
+# without changing the contract-facing SDK version.
+[patch.crates-io]
+ark-ec = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+ark-ff = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+ark-ff-asm = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+ark-ff-macros = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+ark-poly = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+ark-serialize = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+ark-serialize-derive = { git = "https://github.com/Yerickmondra15/algebra.git", rev = "8debe038276147125f9efb2d0fc34b681a06aad5" }
+wasmi_core = { git = "https://github.com/Yerickmondra15/wasmi.git", rev = "49e6a21a1382d005baab020c6be6640bca2320f4" }

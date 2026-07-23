@@ -2,6 +2,9 @@
 
 use soroban_sdk::{contracterror, contracttype, Address, Env};
 
+#[cfg(test)]
+mod test;
+
 #[contracttype]
 #[derive(Clone)]
 pub struct AllowanceData {
@@ -139,8 +142,12 @@ pub fn initialize_token(env: &Env, admin: &Address) {
     set_paused(env, false);
 }
 
+/// Mints tokens when called by the admin and the token is not paused.
 pub fn mint_token(env: &Env, admin: &Address, to: &Address, amount: i128) -> Result<(), Error> {
     check_admin(env, admin)?;
+    if is_paused(env) {
+        return Err(Error::Paused);
+    }
     if amount <= 0 {
         return Ok(());
     }
@@ -151,8 +158,12 @@ pub fn mint_token(env: &Env, admin: &Address, to: &Address, amount: i128) -> Res
     Ok(())
 }
 
+/// Burns tokens when called by the admin and the token is not paused.
 pub fn burn_token(env: &Env, admin: &Address, from: &Address, amount: i128) -> Result<(), Error> {
     check_admin(env, admin)?;
+    if is_paused(env) {
+        return Err(Error::Paused);
+    }
     if amount <= 0 {
         return Ok(());
     }
