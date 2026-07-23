@@ -46,17 +46,6 @@ impl MockAmm {
         env.storage().instance().set(&DataKey::Rate, &rate_bps);
     }
 
-    #[cfg(test)]
-    pub fn initialize_for_test(
-        env: Env,
-        admin: Address,
-        token_in: Address,
-        usdc: Address,
-        rate_bps: u32,
-    ) {
-        Self::set_config(env, admin, token_in, usdc, rate_bps);
-    }
-
     /// Swap token_in (wPi) for the network's USDC SAC.
     pub fn swap(
         env: Env,
@@ -128,7 +117,15 @@ mod test {
         let amm_id = env.register(MockAmm, ());
         let amm = MockAmmClient::new(&env, &amm_id);
 
-        amm.initialize_for_test(&admin, &wpi.address(), &usdc.address(), &1_000_000_u32);
+        env.as_contract(&amm_id, || {
+            MockAmm::set_config(
+                env.clone(),
+                admin.clone(),
+                wpi.address(),
+                usdc.address(),
+                1_000_000,
+            );
+        });
 
         env.mock_all_auths();
         let wpi_admin_client = token::StellarAssetClient::new(&env, &wpi.address());
