@@ -143,7 +143,7 @@ expected "null/success"
 
 echo
 echo "== Mint balances =="
-invoke "$WPI_CONTRACT_ID" mint --admin "$ADMIN_ADDRESS" --to "$ADMIN_ADDRESS" --amount "$MINT_AMOUNT"
+invoke "$WPI_CONTRACT_ID" mint --to "$ADMIN_ADDRESS" --amount "$MINT_AMOUNT"
 expected "Ok/null; admin now has 100.0000000 wPI by default."
 echo
 echo "== Approve the mock AMM to spend wPI =="

@@ -75,7 +75,7 @@ echo "[4/6] Bridge Deposit (Minting wPi to Alice)..."
 # Relayer mints 1,000 wPi to Alice
 WPI_MINT_AMOUNT=10000000000 # 1,000 wPi with 7 decimals
 soroban contract invoke --id $WPI_ID --source relayer --network $NETWORK -- \
-  mint --admin $RELAYER_PUB --to $ALICE_PUB --amount $WPI_MINT_AMOUNT
+  mint --to $ALICE_PUB --amount $WPI_MINT_AMOUNT
 
 echo "[5/6] AMM Swap (wPi -> real USDC)..."
 # Alice swaps 500 wPi for USDC
@@ -89,13 +89,13 @@ soroban contract invoke --id $AMM_ID --source alice --network $NETWORK -- \
   swap --to $ALICE_PUB --amount_in $SWAP_AMOUNT --min_amount_out $SWAP_AMOUNT
 
 echo "[6/6] Bridge Withdrawal (Alice burns remaining wPi)..."
-# Alice approves relayer to burn? Or relayer burns? 
-# In wpi-token, `burn` takes `admin` as auth, and `from` address. 
+# Alice approves relayer to burn? Or relayer burns?
+# In wpi-token, `burn` authenticates the stored admin and takes a `from` address.
 # So the user must transfer/approve or the admin just burns it.
 # Usually, to burn, the admin must be the one calling `burn` acting on behalf of the user's bridge request.
 # Let's say Alice requests withdrawal, Relayer sees it and burns her remaining 500 wPi.
 soroban contract invoke --id $WPI_ID --source relayer --network $NETWORK -- \
-  burn --admin $RELAYER_PUB --from $ALICE_PUB --amount $SWAP_AMOUNT
+  burn --from $ALICE_PUB --amount $SWAP_AMOUNT
 
 echo ""
 echo "=========================================================="
