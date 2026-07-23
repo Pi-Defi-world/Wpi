@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["wpi-token", "mock-usdc", "mock-amm", "soroban-token-common"]
+members = ["wpi-token", "mock-amm", "soroban-token-common"]
 
 [workspace.package]
 edition = "2021"

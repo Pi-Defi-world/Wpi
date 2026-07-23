@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           WASM_DIR="target/wasm32-unknown-unknown/release"
-          CONTRACTS=("wpi_token" "mock_usdc" "mock_amm")
+          CONTRACTS=("wpi_token" "mock_amm")
 
           # Build JSON and Markdown table simultaneously
           JSON="{"
@@ -145,7 +145,6 @@ jobs:
           name: wasm-artifacts
           path: |
             Stellar-contracts-v1/target/wasm32-unknown-unknown/release/wpi_token.wasm
-            Stellar-contracts-v1/target/wasm32-unknown-unknown/release/mock_usdc.wasm
             Stellar-contracts-v1/target/wasm32-unknown-unknown/release/mock_amm.wasm
             Stellar-contracts-v1/wasm-sizes.json
           if-no-files-found: warn

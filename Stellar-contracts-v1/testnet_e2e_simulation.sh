@@ -7,10 +7,10 @@ echo "=========================================================="
 echo ""
 echo "This script simulates the full end-to-end lifecycle on the Stellar Testnet:"
 echo " 1. Setup   : Generate identities (relayer, user), fund via Friendbot"
-echo " 2. Deploy  : Compile & deploy wPi, mock-USDC, mock-AMM"
-echo " 3. Seed    : Relayer mints mock-USDC and deposits liquidity to AMM"
+echo " 2. Deploy  : Compile & deploy wPi and mock-AMM"
+echo " 3. Seed    : Relayer deposits faucet-funded real USDC into the AMM"
 echo " 4. Deposit : Relayer observes Pi deposit and mints wPi to User"
-echo " 5. Swap    : User swaps wPi for mock-USDC via AMM"
+echo " 5. Swap    : User swaps wPi for real USDC via AMM"
 echo " 6. Burn    : User burns remaining wPi to withdraw back to native Pi"
 echo ""
 
@@ -46,14 +46,11 @@ curl -s "https://friendbot.stellar.org/?addr=$ALICE_PUB" > /dev/null
 echo "[2/6] Deploying Contracts to Testnet..."
 
 WPI_WASM="target/wasm32-unknown-unknown/release/wpi_token.wasm"
-USDC_WASM="target/wasm32-unknown-unknown/release/mock_usdc.wasm"
+USDC_ID="CAQCMV4JFG4EZXQEAV7TUV2E52DMSO2LQKBOSA7UM3B4NIP4DQJ3JHQJ"
 AMM_WASM="target/wasm32-unknown-unknown/release/mock_amm.wasm"
 
 WPI_ID=$(soroban contract deploy --wasm $WPI_WASM --source relayer --network $NETWORK)
 echo "wPi Deployed: $WPI_ID"
-
-USDC_ID=$(soroban contract deploy --wasm $USDC_WASM --source relayer --network $NETWORK)
-echo "MockUSDC Deployed: $USDC_ID"
 
 AMM_ID=$(soroban contract deploy --wasm $AMM_WASM --source relayer --network $NETWORK)
 echo "MockAMM Deployed: $AMM_ID"
@@ -63,21 +60,14 @@ echo "[2/6] Initializing Contracts..."
 soroban contract invoke --id $WPI_ID --source relayer --network $NETWORK -- \
   initialize --admin $RELAYER_PUB
 
-# Initialize MockUSDC
-soroban contract invoke --id $USDC_ID --source relayer --network $NETWORK -- \
-  initialize --admin $RELAYER_PUB
-
 # Initialize MockAMM (Rate: 1 wPi = 1 USDC -> rate_bps = 1_000_000)
 soroban contract invoke --id $AMM_ID --source relayer --network $NETWORK -- \
-  initialize --admin $RELAYER_PUB --token_in $WPI_ID --token_out $USDC_ID --rate_bps 1000000
+  initialize --admin $RELAYER_PUB --token_in $WPI_ID --rate_bps 1000000
 
 echo "[3/6] Seeding Liquidity..."
-# Relayer mints 100,000 MockUSDC to themselves
+# The relayer must already hold this amount of Circle testnet USDC.
 LIQUIDITY_AMOUNT=100000000000 # 10,000 USDC with 7 decimals
-soroban contract invoke --id $USDC_ID --source relayer --network $NETWORK -- \
-  mint --admin $RELAYER_PUB --to $RELAYER_PUB --amount $LIQUIDITY_AMOUNT
-
-# Relayer deposits MockUSDC to AMM
+# Fund it from Circle's faucet before running the simulation.
 soroban contract invoke --id $AMM_ID --source relayer --network $NETWORK -- \
   deposit_liquidity --from $RELAYER_PUB --amount_out $LIQUIDITY_AMOUNT
 
@@ -87,8 +77,8 @@ WPI_MINT_AMOUNT=10000000000 # 1,000 wPi with 7 decimals
 soroban contract invoke --id $WPI_ID --source relayer --network $NETWORK -- \
   mint --admin $RELAYER_PUB --to $ALICE_PUB --amount $WPI_MINT_AMOUNT
 
-echo "[5/6] AMM Swap (wPi -> MockUSDC)..."
-# Alice swaps 500 wPi for MockUSDC
+echo "[5/6] AMM Swap (wPi -> real USDC)..."
+# Alice swaps 500 wPi for USDC
 SWAP_AMOUNT=5000000000 # 500 wPi
 # First, Alice approves AMM to spend her wPi
 soroban contract invoke --id $WPI_ID --source alice --network $NETWORK -- \
