@@ -70,7 +70,6 @@ stellar contract invoke \
   --network testnet \
   -- \
   set_volume_limit_admin \
-  --admin "$ADMIN_ADDRESS" \
   --new_admin "$MULTISIG_ADDRESS"
 ```
 
@@ -83,7 +82,6 @@ stellar contract invoke \
   --network testnet \
   -- \
   configure_volume_limits \
-  --admin "$MULTISIG_ADDRESS" \
   --mint_limit 10000000000000 \
   --burn_limit 10000000000000 \
   --window_seconds 86400
@@ -110,8 +108,7 @@ stellar contract invoke \
   --source "$MULTISIG_IDENTITY" \
   --network testnet \
   -- \
-  override_volume_limit \
-  --admin "$MULTISIG_ADDRESS"
+  override_volume_limit
 ```
 
 `override_volume_limit` clears both rolling totals, starts a fresh window,

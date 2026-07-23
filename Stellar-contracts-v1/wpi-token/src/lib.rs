@@ -135,12 +135,15 @@ fn read_admin(env: &Env) -> Address {
         .unwrap()
 }
 
-fn require_admin(env: &Env, admin: &Address) -> Result<(), Error> {
-    if *admin != read_admin(env) {
-        return Err(Error::NotAdmin);
-    }
+/// Authenticates the current on-chain admin from stored state and returns
+/// it. Callers must never accept an admin address as an argument and
+/// authenticate that instead — doing so couples correctness to argument
+/// order and lets a caller-supplied address silently stand in for the real
+/// admin.
+fn require_admin(env: &Env) -> Address {
+    let admin = read_admin(env);
     admin.require_auth();
-    Ok(())
+    admin
 }
 
 fn read_volume_limit_admin(env: &Env) -> Address {
@@ -152,12 +155,13 @@ fn read_volume_limit_admin(env: &Env) -> Address {
         .unwrap_or_else(|| read_admin(env))
 }
 
-fn require_volume_limit_admin(env: &Env, admin: &Address) -> Result<(), Error> {
-    if *admin != read_volume_limit_admin(env) {
-        return Err(Error::NotAdmin);
-    }
+/// Authenticates the current on-chain volume-limit admin from stored state
+/// and returns it. See [`require_admin`] for why this must not take the
+/// admin as an argument.
+fn require_volume_limit_admin(env: &Env) -> Address {
+    let admin = read_volume_limit_admin(env);
     admin.require_auth();
-    Ok(())
+    admin
 }
 
 fn write_volume_limit_admin(env: &Env, admin: &Address) {
@@ -485,12 +489,11 @@ impl WpiToken {
 
     pub fn configure_volume_limits(
         env: Env,
-        admin: Address,
         mint_limit: i128,
         burn_limit: i128,
         window_seconds: u64,
     ) -> Result<(), Error> {
-        require_volume_limit_admin(&env, &admin)?;
+        require_volume_limit_admin(&env);
         if mint_limit <= 0 || burn_limit <= 0 || window_seconds == 0 {
             return Err(Error::InvalidVolumeLimit);
         }
@@ -514,8 +517,8 @@ impl WpiToken {
 
     /// Admin-only override for a tripped bridge-volume circuit breaker.
     /// Resets both rolling counters and starts a fresh window before unpausing.
-    pub fn override_volume_limit(env: Env, admin: Address) -> Result<(), Error> {
-        require_volume_limit_admin(&env, &admin)?;
+    pub fn override_volume_limit(env: Env) -> Result<(), Error> {
+        let admin = require_volume_limit_admin(&env);
         read_volume_config(&env)?;
         let now = env.ledger().timestamp();
         advance_volume_generation(&env)?;
@@ -627,8 +630,8 @@ impl WpiToken {
 
     /// Administrative mint. It uses the same bridge-wide mint counter as
     /// `mint_from_deposit`, so no privileged mint path bypasses the cap.
-    pub fn mint(env: Env, admin: Address, to: Address, amount: i128) -> Result<bool, Error> {
-        require_admin(&env, &admin)?;
+    pub fn mint(env: Env, to: Address, amount: i128) -> Result<bool, Error> {
+        require_admin(&env);
         if is_paused(&env) {
             return Err(Error::Paused);
         }
@@ -653,12 +656,11 @@ impl WpiToken {
 
     pub fn mint_from_deposit(
         env: Env,
-        admin: Address,
         to: Address,
         amount: i128,
         pi_deposit_id: BytesN<32>,
     ) -> Result<bool, Error> {
-        require_admin(&env, &admin)?;
+        require_admin(&env);
         if is_paused(&env) {
             return Err(Error::Paused);
         }
@@ -690,12 +692,11 @@ impl WpiToken {
 
     pub fn burn(
         env: Env,
-        admin: Address,
         from: Address,
         amount: i128,
         pi_destination: BytesN<32>,
     ) -> Result<bool, Error> {
-        require_admin(&env, &admin)?;
+        require_admin(&env);
         if is_paused(&env) {
             return Err(Error::Paused);
         }
@@ -724,8 +725,8 @@ impl WpiToken {
         Ok(true)
     }
 
-    pub fn set_admin(env: Env, admin: Address, new_admin: Address) -> Result<(), Error> {
-        require_admin(&env, &admin)?;
+    pub fn set_admin(env: Env, new_admin: Address) -> Result<(), Error> {
+        require_admin(&env);
         write_admin(&env, &new_admin);
         Ok(())
     }
@@ -733,18 +734,14 @@ impl WpiToken {
     /// Rotates the independent circuit-breaker authority. Only the current
     /// volume-limit admin can transfer this role; the mint/burn admin cannot
     /// reclaim it after it has been handed to a multisig.
-    pub fn set_volume_limit_admin(
-        env: Env,
-        admin: Address,
-        new_admin: Address,
-    ) -> Result<(), Error> {
-        require_volume_limit_admin(&env, &admin)?;
+    pub fn set_volume_limit_admin(env: Env, new_admin: Address) -> Result<(), Error> {
+        require_volume_limit_admin(&env);
         write_volume_limit_admin(&env, &new_admin);
         Ok(())
     }
 
-    pub fn set_paused(env: Env, admin: Address, paused: bool) -> Result<(), Error> {
-        require_admin(&env, &admin)?;
+    pub fn set_paused(env: Env, paused: bool) -> Result<(), Error> {
+        require_admin(&env);
         if !paused && is_circuit_breaker_active(&env) {
             return Err(Error::CircuitBreakerActive);
         }
@@ -752,12 +749,8 @@ impl WpiToken {
         Ok(())
     }
 
-    pub fn upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
-        let current_admin = read_admin(&env);
-        if admin != current_admin {
-            return Err(Error::NotAdmin);
-        }
-        admin.require_auth();
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        require_admin(&env);
         env.deployer().update_current_contract_wasm(new_wasm_hash);
         Ok(())
     }
