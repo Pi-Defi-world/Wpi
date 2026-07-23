@@ -47,14 +47,13 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "defd9a439d56ac24968cca0571f598a61bc8c55f71d50a89cda591cb750670ba"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "ark-ff",
  "ark-poly",
  "ark-serialize",
  "ark-std",
- "derivative",
+ "educe",
  "hashbrown 0.13.2",
  "itertools",
  "num-traits",
@@ -64,19 +63,18 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec847af850f44ad29048935519032c33da8aa03340876d351dfab5660d2966ba"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
  "ark-serialize",
  "ark-std",
- "derivative",
  "digest",
+ "educe",
  "itertools",
  "num-bigint",
  "num-traits",
- "paste",
+ "pastey",
  "rustc_version",
  "zeroize",
 ]
@@ -84,8 +82,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ed4aa4fe255d0bc6d79373f7e31d2ea147bcf486cba1be5ba7ea85abdb92348"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -94,8 +91,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7abe79b0e4288889c4574159ab790824d0033b9fdcb2a112a3182fac2e514565"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -107,21 +103,19 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d320bfc44ee185d899ccbadfa8bc31aab923ce1558716e1997a1e74057fe86bf"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "ark-ff",
  "ark-serialize",
  "ark-std",
- "derivative",
+ "educe",
  "hashbrown 0.13.2",
 ]
 
 [[package]]
 name = "ark-serialize"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adb7b85a02b83d2f22f89bd5cac66c9c89474240cb6207cb1efc16d098e822a5"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -132,8 +126,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae3281bc6d0fd7e549af32b52511e1302185bd688fd3359fa36423346ff682ea"
+source = "git+https://github.com/Yerickmondra15/algebra.git?rev=8debe038276147125f9efb2d0fc34b681a06aad5#8debe038276147125f9efb2d0fc34b681a06aad5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -456,17 +449,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derivative"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "derive_arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -540,6 +522,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "educe"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e93898956a40b4e5aadd52d57674426a14b0c5598ac5305b93b8560101083065"
+dependencies = [
+ "enum-ordinalize",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "either"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -561,6 +555,26 @@ dependencies = [
  "sec1",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "enum-ordinalize"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fea0dcfa4e54eeb516fe454635a95753ddd39acda650ce703031c6973e315dd5"
+dependencies = [
+ "enum-ordinalize-derive",
+]
+
+[[package]]
+name = "enum-ordinalize-derive"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e12d6d72b0a748af4d006a06f6dc14b040225dafdbbe057a472dca7571ed4d05"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -976,10 +990,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.15"
+name = "pastey"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "pin-project-lite"
@@ -1882,13 +1896,12 @@ checksum = "104a7f73be44570cac297b3035d76b169d6599637631cf37a1703326a0727073"
 [[package]]
 name = "wasmi_core"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcf1a7db34bff95b85c261002720c00c3a6168256dcb93041d3fa2054d19856a"
+source = "git+https://github.com/Yerickmondra15/wasmi.git?rev=49e6a21a1382d005baab020c6be6640bca2320f4#49e6a21a1382d005baab020c6be6640bca2320f4"
 dependencies = [
  "downcast-rs",
  "libm",
  "num-traits",
- "paste",
+ "pastey",
 ]
 
 [[package]]
