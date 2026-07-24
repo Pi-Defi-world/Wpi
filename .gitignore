@@ -1,0 +1,39 @@
+# Rust build artifacts
+/target/
+**/target/
+
+# Keep Cargo.lock tracked for applications/workspaces in this repository.
+# For reusable library crates that intentionally omit lockfiles, uncomment:
+# Cargo.lock
+
+# Environment and secret material
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.keystore
+*.secret
+secrets/
+
+# Node / JavaScript build artifacts
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Logs and local caches
+*.log
+.cache/
+.tmp/
+tmp/
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
