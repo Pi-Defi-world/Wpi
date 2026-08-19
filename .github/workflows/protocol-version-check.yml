@@ -1,0 +1,87 @@
+name: Protocol Version Drift Check
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - 'COMPATIBILITY.md'
+      - 'protocol-versions.json'
+  pull_request:
+    paths:
+      - 'COMPATIBILITY.md'
+      - 'protocol-versions.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-protocol-versions:
+    name: Verify pinned Pi/Stellar protocol versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check live protocol versions against protocol-versions.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENTRY_COUNT=$(jq '[.chains[] | to_entries[]] | length' protocol-versions.json)
+          echo "Checking ${ENTRY_COUNT} network endpoints pinned in protocol-versions.json"
+          echo ""
+
+          FAILED=0
+          {
+            echo "## Protocol Version Drift Check — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo "| Chain | Network | Pinned protocol | Live protocol | Core version | Horizon version | Status |"
+            echo "|---|---|---|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          jq -c '.chains | to_entries[] | .key as $chain | .value | to_entries[] | {chain: $chain, network: .key, url: .value.url, expected: .value.protocol}' protocol-versions.json |
+          while IFS= read -r row; do
+            chain=$(printf '%s' "$row" | jq -r '.chain')
+            network=$(printf '%s' "$row" | jq -r '.network')
+            url=$(printf '%s' "$row" | jq -r '.url')
+            expected=$(printf '%s' "$row" | jq -r '.expected')
+
+            if ! root=$(curl -fsSL --max-time 30 "$url" 2>/dev/null); then
+              live="unreachable"
+              core="—"
+              horizon="—"
+              status="UNREACHABLE"
+              FAILED=1
+            else
+              live=$(printf '%s' "$root" | jq -r '.current_protocol_version // "unknown"')
+              core=$(printf '%s' "$root" | jq -r '.core_version // "unknown"')
+              horizon=$(printf '%s' "$root" | jq -r '.horizon_version // "unknown"')
+
+              if [[ "$live" == "$expected" ]]; then
+                status="OK"
+              else
+                status="DRIFT (pinned ${expected}, live ${live})"
+                FAILED=1
+              fi
+            fi
+
+            echo "::group::${chain} ${network}"
+            echo "${chain} ${network}: expected protocol ${expected}, live ${live}"
+            echo "  core:    ${core}"
+            echo "  horizon: ${horizon}"
+            echo "  status:  ${status}"
+            echo "::endgroup::"
+
+            echo "| ${chain} | ${network} | ${expected} | ${live} | \`${core}\` | \`${horizon}\` | ${status} |" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          if [[ "$FAILED" -eq 1 ]]; then
+            echo ""
+            echo "ERROR: one or more networks' live protocol version no longer matches protocol-versions.json."
+            echo "Follow the update policy in COMPATIBILITY.md before merging or running the relayer."
+            exit 1
+          fi
+
+          echo ""
+          echo "All pinned protocol versions match the live networks."

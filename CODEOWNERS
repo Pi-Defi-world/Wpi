@@ -1,0 +1,30 @@
+# CODEOWNERS
+#
+# Owners are requested for review when a PR touches a matching path.
+# Patterns are matched from the bottom up; the last match wins.
+# Update this file as the maintainer set evolves (see CONTRIBUTING.md).
+
+# Default owner for paths not matched below.
+* @likableai
+
+# On-chain Soroban contracts (wpi-token, mock-amm) and their build/release CI.
+/Stellar-contracts-v1/ @likableai
+/.github/workflows/ci.yml @likableai
+/.github/workflows/release.yml @likableai
+/.github/workflows/cargo-audit.yml @likableai
+/scripts/ @likableai
+
+# Relayer (TypeScript bridge service) and its tests/docs.
+/relayer/ @likableai
+
+# Bridge policy and protocol-compatibility documentation.
+/COMPATIBILITY.md @likableai
+/protocol-versions.json @likableai
+/.github/workflows/protocol-version-check.yml @likableai
+/docs/deposit-eligibility.md @likableai
+/CHANGELOG.md @likableai
+
+# Contribution scaffolding.
+/CONTRIBUTING.md @likableai
+/.github/ISSUE_TEMPLATE/ @likableai
+/.github/PULL_REQUEST_TEMPLATE.md @likableai

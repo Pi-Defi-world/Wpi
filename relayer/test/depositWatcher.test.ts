@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DepositWatcher } from '../src/pi/depositWatcher.js';
-import type { IncomingPaymentsPage, PiClient } from '../src/pi/piClient.js';
+import { DepositEligibilityPolicy } from '../src/pi/eligibility.js';
+import type { AccountEligibility, IncomingPaymentsPage, PiClient } from '../src/pi/piClient.js';
 import { createLogger } from '../src/log.js';
 import { MemoryStore } from '../src/store/memoryStore.js';
 import type { PiPayment } from '../src/types.js';
@@ -11,6 +12,11 @@ const DEST = 'G'.padEnd(56, 'A');
 class FakePiClient implements PiClient {
   latestLedger = 0;
   private pages: IncomingPaymentsPage[] = [];
+  /**
+   * Accounts that do NOT resolve on the chain lookup. Everything else is a
+   * migrated mainnet account.
+   */
+  unmigratedAccounts = new Set<string>();
 
   queuePayments(payments: PiPayment[], nextCursor: string): void {
     this.pages.push({ payments, nextCursor });
@@ -23,6 +29,13 @@ class FakePiClient implements PiClient {
   getIncomingPayments(cursor: string): Promise<IncomingPaymentsPage> {
     const page = this.pages.shift();
     return Promise.resolve(page ?? { payments: [], nextCursor: cursor });
+  }
+
+  getAccountEligibility(accountId: string): Promise<AccountEligibility> {
+    if (this.unmigratedAccounts.has(accountId)) {
+      return Promise.resolve({ eligible: false, reason: 'account_not_found' });
+    }
+    return Promise.resolve({ eligible: true });
   }
 }
 
@@ -133,5 +146,130 @@ describe('DepositWatcher', () => {
     await watcher.pollOnce();
 
     expect(store.getPiCursor()).toBe('cursor-42');
+  });
+
+  it('marks a deposit from an unmigrated (non-ledger) source as ineligible, never confirmed', async () => {
+    const pi = new FakePiClient();
+    pi.unmigratedAccounts.add('GNONMIGRATED');
+    pi.queuePayments([payment({ from: 'GNONMIGRATED' })], 'cursor-1');
+    pi.latestLedger = 1000;
+
+    const store = new MemoryStore();
+    const watcher = new DepositWatcher(
+      pi,
+      store,
+      {
+        confirmationDepth: 30,
+        eligibility: new DepositEligibilityPolicy(pi, { enabled: true }),
+      },
+      silentLogger,
+    );
+
+    const confirmed = await watcher.pollOnce();
+
+    expect(confirmed).toEqual([]);
+    const record = store.getDeposit(depositIdFromPiTxId('tx-1'));
+    expect(record?.status).toBe('ineligible');
+    expect(record?.ineligibleReason).toBe('account_not_found');
+  });
+
+  it('rejects a source that is blocklisted even though it is migrated', async () => {
+    const pi = new FakePiClient();
+    pi.queuePayments([payment({ from: 'GFROZEN' })], 'cursor-1');
+    pi.latestLedger = 1000;
+
+    const store = new MemoryStore();
+    const watcher = new DepositWatcher(
+      pi,
+      store,
+      {
+        confirmationDepth: 30,
+        eligibility: new DepositEligibilityPolicy(pi, {
+          enabled: true,
+          blocklist: ['GFROZEN'],
+        }),
+      },
+      silentLogger,
+    );
+
+    await watcher.pollOnce();
+
+    const record = store.getDeposit(depositIdFromPiTxId('tx-1'));
+    expect(record?.status).toBe('ineligible');
+    expect(record?.ineligibleReason).toBe('blocklisted');
+  });
+
+  it('rejects a source missing from the KYC allowlist', async () => {
+    const pi = new FakePiClient();
+    pi.queuePayments([payment({ from: 'GNOKYC' })], 'cursor-1');
+    pi.latestLedger = 1000;
+
+    const store = new MemoryStore();
+    const watcher = new DepositWatcher(
+      pi,
+      store,
+      {
+        confirmationDepth: 30,
+        eligibility: new DepositEligibilityPolicy(pi, {
+          enabled: true,
+          allowlist: ['GKYCAPPROVED'],
+        }),
+      },
+      silentLogger,
+    );
+
+    await watcher.pollOnce();
+
+    const record = store.getDeposit(depositIdFromPiTxId('tx-1'));
+    expect(record?.status).toBe('ineligible');
+    expect(record?.ineligibleReason).toBe('not_allowlisted');
+  });
+
+  it('confirms a deposit from an allowlisted, migrated source', async () => {
+    const pi = new FakePiClient();
+    pi.queuePayments([payment({ from: 'GKYCAPPROVED' })], 'cursor-1');
+    pi.latestLedger = 130;
+
+    const store = new MemoryStore();
+    const watcher = new DepositWatcher(
+      pi,
+      store,
+      {
+        confirmationDepth: 30,
+        eligibility: new DepositEligibilityPolicy(pi, {
+          enabled: true,
+          allowlist: ['GKYCAPPROVED'],
+        }),
+      },
+      silentLogger,
+    );
+
+    const confirmed = await watcher.pollOnce();
+
+    expect(confirmed).toHaveLength(1);
+    expect(store.getDeposit(depositIdFromPiTxId('tx-1'))?.status).toBe('confirmed');
+  });
+
+  it('treats every source as eligible when the policy is disabled', async () => {
+    const pi = new FakePiClient();
+    pi.unmigratedAccounts.add('GNONMIGRATED');
+    pi.queuePayments([payment({ from: 'GNONMIGRATED' })], 'cursor-1');
+    pi.latestLedger = 130;
+
+    const store = new MemoryStore();
+    const watcher = new DepositWatcher(
+      pi,
+      store,
+      {
+        confirmationDepth: 30,
+        eligibility: new DepositEligibilityPolicy(pi, { enabled: false }),
+      },
+      silentLogger,
+    );
+
+    const confirmed = await watcher.pollOnce();
+
+    expect(confirmed).toHaveLength(1);
+    expect(store.getDeposit(depositIdFromPiTxId('tx-1'))?.status).toBe('confirmed');
   });
 });

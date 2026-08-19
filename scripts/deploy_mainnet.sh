@@ -11,10 +11,8 @@ SOURCE_ACCOUNT="${STELLAR_ACCOUNT:-${ADMIN_IDENTITY:-}}"
 ADMIN_ADDRESS="${ADMIN_ADDRESS:-}"
 RPC_URL="${STELLAR_RPC_URL:-}"
 DEPLOY_AMM="${DEPLOY_AMM:-false}"
-RATE_BPS="${RATE_BPS:-1000000}"
 
 WPI_WASM="${WPI_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/wpi_token.wasm}"
-AMM_WASM="${AMM_WASM:-${CONTRACT_DIR}/target/wasm32-unknown-unknown/release/mock_amm.wasm}"
 
 NETWORK_ARGS=(--network "$NETWORK" --rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE")
 
@@ -31,6 +29,11 @@ ensure_cli() {
 }
 
 require_mainnet_inputs() {
+  if [[ "$DEPLOY_AMM" == "true" ]]; then
+    echo "ERROR: mock-amm is test-only and must never be deployed to mainnet. Unset DEPLOY_AMM." >&2
+    exit 1
+  fi
+
   if [[ -z "$SOURCE_ACCOUNT" ]]; then
     echo "ERROR: set STELLAR_ACCOUNT or ADMIN_IDENTITY to the mainnet signing identity." >&2
     exit 1
@@ -120,25 +123,8 @@ WPI_CONTRACT_ID="$(deploy_uploaded_wasm WPI "$WPI_HASH")"
 echo "== Initialize wPI contract =="
 invoke_contract "$WPI_CONTRACT_ID" initialize --admin "$ADMIN_ADDRESS"
 
-if [[ "$DEPLOY_AMM" == "true" ]]; then
-  AMM_HASH="$(upload_wasm MOCK_AMM "$AMM_WASM")"
-  MOCK_AMM_CONTRACT_ID="$(deploy_uploaded_wasm MOCK_AMM "$AMM_HASH")"
-
-  echo "== Initialize optional AMM contract =="
-  invoke_contract "$MOCK_AMM_CONTRACT_ID" initialize \
-    --admin "$ADMIN_ADDRESS" \
-    --token_in "$WPI_CONTRACT_ID" \
-    --rate_bps "$RATE_BPS"
-fi
-
 cat <<EOF
 
 Mainnet deployment complete.
 export WPI_CONTRACT_ID=${WPI_CONTRACT_ID}
 EOF
-
-if [[ "$DEPLOY_AMM" == "true" ]]; then
-  cat <<EOF
-export MOCK_AMM_CONTRACT_ID=${MOCK_AMM_CONTRACT_ID}
-EOF
-fi

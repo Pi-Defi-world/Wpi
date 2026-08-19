@@ -3,7 +3,18 @@
 //! Mock AMM pool for testing wPi -> MockUSDC swaps.
 //! Hardcodes a 1:1 swap rate (or configurable) for testnet simulation without complex math.
 
-use soroban_sdk::{contract, contracterror, contractimpl, contracttype, token, Address, Env};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, token, Address, BytesN, Env,
+};
+
+/// SHA-256 hash of the Stellar mainnet network passphrase
+/// ("Public Global Stellar Network ; September 2015"). This is the value
+/// `env.ledger().network_id()` returns when a contract is running on
+/// mainnet. mock-amm is test-only and must never be initialized there.
+const MAINNET_NETWORK_ID: [u8; 32] = [
+    0x7a, 0xc3, 0x39, 0x97, 0x54, 0x4e, 0x31, 0x75, 0xd2, 0x66, 0xbd, 0x02, 0x24, 0x39, 0xb2, 0x2c,
+    0xdb, 0x16, 0x50, 0x8c, 0x01, 0x16, 0x3f, 0x26, 0xe5, 0xcb, 0x2a, 0x3e, 0x10, 0x45, 0xa9, 0x79,
+];
 
 const MIN_RATE_BPS: u32 = 1;
 const MAX_RATE_BPS: u32 = 1_000_000;
@@ -24,6 +35,7 @@ pub enum Error {
     InsufficientLiquidity = 2,
     SlippageExceeded = 3,
     InvalidRate = 4,
+    MainnetNotSupported = 4,
 }
 
 #[contract]
@@ -38,6 +50,9 @@ impl MockAmm {
         token_out: Address,
         rate_bps: u32,
     ) -> Result<(), Error> {
+        if env.ledger().network_id() == BytesN::from_array(&env, &MAINNET_NETWORK_ID) {
+            return Err(Error::MainnetNotSupported);
+        }
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }

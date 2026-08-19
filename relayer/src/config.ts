@@ -15,6 +15,8 @@ export const DEFAULT_PI_CONFIRMATION_DEPTH = 30;
 export const DEFAULT_PI_POLL_INTERVAL_MS = 5_000;
 export const DEFAULT_STELLAR_POLL_INTERVAL_MS = 5_000;
 export const DEFAULT_STORE_PATH = './data/relayer-state.json';
+/** Deposit-source eligibility is on by default and fails closed (Issue #28). */
+export const DEFAULT_ELIGIBILITY_ENABLED = true;
 
 export interface RelayerConfig {
   pi: {
@@ -25,6 +27,12 @@ export interface RelayerConfig {
     custodianSecretKey: string;
     confirmationDepth: number;
     pollIntervalMs: number;
+    /** Master switch for the deposit-source eligibility policy. */
+    eligibilityEnabled: boolean;
+    /** KYC-attested addresses that may deposit; empty means "any migrated account". */
+    eligibilityAllowlist: string[];
+    /** Addresses that may never deposit; takes precedence over the allowlist. */
+    eligibilityBlocklist: string[];
   };
   stellar: {
     rpcUrl: string;
@@ -62,6 +70,15 @@ function optionalBool(env: NodeJS.ProcessEnv, name: string, fallback: boolean): 
   return raw === 'true' || raw === '1';
 }
 
+function optionalList(env: NodeJS.ProcessEnv, name: string): string[] {
+  const raw = env[name];
+  if (raw === undefined || raw === '') return [];
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): RelayerConfig {
   return {
     pi: {
@@ -75,6 +92,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): RelayerConfig 
         DEFAULT_PI_CONFIRMATION_DEPTH,
       ),
       pollIntervalMs: optionalInt(env, 'PI_POLL_INTERVAL_MS', DEFAULT_PI_POLL_INTERVAL_MS),
+      eligibilityEnabled: optionalBool(
+        env,
+        'PI_ELIGIBILITY_ENABLED',
+        DEFAULT_ELIGIBILITY_ENABLED,
+      ),
+      eligibilityAllowlist: optionalList(env, 'PI_ELIGIBILITY_ALLOWLIST'),
+      eligibilityBlocklist: optionalList(env, 'PI_ELIGIBILITY_BLOCKLIST'),
     },
     stellar: {
       rpcUrl: required(env, 'STELLAR_SOROBAN_RPC_URL'),

@@ -2,6 +2,7 @@ import { loadConfig } from './config.js';
 import { createLogger } from './log.js';
 import { DryRunPiPayoutClient } from './pi/dryRunPiPayoutClient.js';
 import { DepositWatcher } from './pi/depositWatcher.js';
+import { DepositEligibilityPolicy } from './pi/eligibility.js';
 import { HorizonPiClient } from './pi/horizonPiClient.js';
 import { HorizonPiPayoutClient } from './pi/horizonPiPayoutClient.js';
 import type { PiPayoutClient } from './pi/piPayoutClient.js';
@@ -22,7 +23,14 @@ async function main(): Promise<void> {
   const depositWatcher = new DepositWatcher(
     piClient,
     store,
-    { confirmationDepth: config.pi.confirmationDepth },
+    {
+      confirmationDepth: config.pi.confirmationDepth,
+      eligibility: new DepositEligibilityPolicy(piClient, {
+        enabled: config.pi.eligibilityEnabled,
+        allowlist: config.pi.eligibilityAllowlist,
+        blocklist: config.pi.eligibilityBlocklist,
+      }),
+    },
     createLogger('deposit-watcher'),
   );
 

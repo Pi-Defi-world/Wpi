@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and publishes `MintTxCapExceeded`. Mints fail closed with
   `MintTxCapNotConfigured` until the ceiling is configured ([#19](https://github.com/Pi-Defi-world/Wpi/issues/19)).
 
+### Docs
+- **Compatibility**: Added `COMPATIBILITY.md` documenting the pinned Pi Core /
+  Stellar protocol versions the bridge is built and tested against (Pi mainnet
+  Protocol 26, Stellar mainnet Protocol 27 "Zipper" at time of writing), how
+  drift is detected, and the update policy for SDK/protocol bumps. Added a
+  scheduled CI drift check (`protocol-version-check.yml`) comparing the live
+  networks against `protocol-versions.json` ([#27](https://github.com/Pi-Defi-world/Wpi/issues/27)).
+- **Eligibility policy**: Added `docs/deposit-eligibility.md` stating that only
+  migrated, KYC-verified Pi mainnet accounts may originate a deposit, and
+  implemented fail-closed enforcement in the relayer (`DepositEligibilityPolicy`
+  + `DepositWatcher`): ineligible sources are recorded with status `ineligible`
+  and are never minted ([#28](https://github.com/Pi-Defi-world/Wpi/issues/28)).
+- **Contributing**: Added `CONTRIBUTING.md`, issue/PR templates, and
+  `CODEOWNERS` for the contract crates ([#30](https://github.com/Pi-Defi-world/Wpi/issues/30)).
+
 ## [0.1.0] - 2026-07-28
 
 ### Added

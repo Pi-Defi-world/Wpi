@@ -15,7 +15,8 @@
  */
 import { createLogger } from '../src/log.js';
 import { DepositWatcher } from '../src/pi/depositWatcher.js';
-import type { IncomingPaymentsPage, PiClient } from '../src/pi/piClient.js';
+import { DepositEligibilityPolicy } from '../src/pi/eligibility.js';
+import type { AccountEligibility, IncomingPaymentsPage, PiClient } from '../src/pi/piClient.js';
 import { MockPiPayoutClient } from '../src/pi/mockPiPayoutClient.js';
 import { RedemptionWatcher } from '../src/stellar/redemptionWatcher.js';
 import { MintSubmitter } from '../src/stellar/mintSubmitter.js';
@@ -49,6 +50,10 @@ class FakePiClient implements PiClient {
     const payments = this.pending;
     this.pending = [];
     return Promise.resolve({ payments, nextCursor: cursor || 'demo-cursor' });
+  }
+
+  getAccountEligibility(_accountId: string): Promise<AccountEligibility> {
+    return Promise.resolve({ eligible: true });
   }
 }
 
@@ -92,7 +97,10 @@ async function main(): Promise<void> {
   const depositWatcher = new DepositWatcher(
     piClient,
     store,
-    { confirmationDepth: CONFIRMATION_DEPTH },
+    {
+      confirmationDepth: CONFIRMATION_DEPTH,
+      eligibility: new DepositEligibilityPolicy(piClient, { enabled: true }),
+    },
     createLogger('deposit-watcher'),
   );
   const contractClient = new FakeWpiContractClient();

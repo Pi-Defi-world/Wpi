@@ -1,0 +1,35 @@
+{
+  "$comment": "Pinned protocol-version expectations verified by .github/workflows/protocol-version-check.yml. Keep in sync with COMPATIBILITY.md: any bump here must also update that file and CHANGELOG.md.",
+  "verified": "2026-08-19",
+  "chains": {
+    "stellar": {
+      "mainnet": {
+        "url": "https://horizon.stellar.org/",
+        "protocol": 27,
+        "coreVersion": "stellar-core 28.0.0",
+        "horizonVersion": "27.0.1"
+      },
+      "testnet": {
+        "url": "https://horizon-testnet.stellar.org/",
+        "protocol": 27,
+        "coreVersion": "stellar-core 28.0.0",
+        "horizonVersion": "27.0.1"
+      }
+    },
+    "pi": {
+      "mainnet": {
+        "url": "https://api.mainnet.minepi.com/",
+        "protocol": 26,
+        "coreVersion": "stellar-core 26.1.0",
+        "horizonVersion": "26.0.0"
+      },
+      "testnet": {
+        "url": "https://api.testnet.minepi.com/",
+        "protocol": 26,
+        "coreVersion": "v27.1.0",
+        "horizonVersion": "pi-horizon-27.0.0",
+        "supportedProtocol": 27
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import type { PiPayment } from '../types.js';
 import { decimalToStroops, ledgerFromPagingToken } from '../util/amount.js';
-import type { IncomingPaymentsPage, PiClient } from './piClient.js';
+import type { AccountEligibility, IncomingPaymentsPage, PiClient } from './piClient.js';
 
 interface HorizonRootResponse {
   history_latest_ledger: number;
@@ -88,5 +88,33 @@ export class HorizonPiClient implements PiClient {
       });
     }
     return { payments, nextCursor };
+  }
+
+  async getAccountEligibility(accountId: string): Promise<AccountEligibility> {
+    // A migrated Pi mainnet account owns a live ledger entry and therefore
+    // resolves on the configured Horizon (defaults to mainnet in production).
+    // A pre-migration wallet balance or a testnet-only address has no ledger
+    // entry here and returns 404 => ineligible. See
+    // docs/deposit-eligibility.md for the full policy.
+    const url = new URL(
+      `/accounts/${encodeURIComponent(accountId)}`,
+      this.horizonUrl.endsWith('/') ? this.horizonUrl : `${this.horizonUrl}/`,
+    );
+
+    try {
+      const res = await fetch(url);
+      if (res.status === 404) {
+        return { eligible: false, reason: 'account_not_found' };
+      }
+      if (!res.ok) {
+        return { eligible: false, reason: 'eligibility_check_failed' };
+      }
+      return { eligible: true };
+    } catch {
+      // Fail closed: if the Pi Horizon endpoint is unreachable we cannot
+      // prove the source is migrated, so treat it as ineligible and let an
+      // operator investigate rather than minting speculatively.
+      return { eligible: false, reason: 'eligibility_check_failed' };
+    }
   }
 }

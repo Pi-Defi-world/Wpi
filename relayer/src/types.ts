@@ -32,6 +32,7 @@ export type DepositStatus =
   | 'minting'
   | 'minted'
   | 'unroutable'
+  | 'ineligible'
   | 'failed';
 
 export interface DepositRecord {
@@ -42,6 +43,8 @@ export interface DepositRecord {
   observedAtLedger: number;
   status: DepositStatus;
   mintTxHash?: string;
+  /** Machine-readable reason when `status === 'ineligible'` (Issue #28). */
+  ineligibleReason?: string;
   lastError?: string;
   updatedAt: string;
 }

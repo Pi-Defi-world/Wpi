@@ -79,6 +79,30 @@ sending Pi to the bridge. A deposit with a missing or malformed memo is
 recorded as `unroutable` (logged, never silently dropped or guessed at) —
 see `DepositWatcher` in [src/pi/depositWatcher.ts](src/pi/depositWatcher.ts).
 
+## Deposit-source eligibility policy
+
+The relayer enforces the eligibility policy in
+[../docs/deposit-eligibility.md](../docs/deposit-eligibility.md) (Issue #28):
+**only migrated, KYC-verified Pi mainnet accounts may originate a deposit.**
+
+At ingest time, `DepositWatcher` runs `DepositEligibilityPolicy` (in
+[src/pi/eligibility.ts](src/pi/eligibility.ts)) for every payment's source
+account. The policy layers an operator blocklist/allowlist over a chain-level
+"account exists on Pi mainnet" lookup (`HorizonPiClient.getAccountEligibility`).
+An ineligible source is recorded with status `ineligible` and a machine-readable
+`ineligibleReason`; it is never promoted to `confirmed`, so the `MintSubmitter`
+never calls `mint_from_deposit` for it. The check is **fail-closed by default**
+(`PI_ELIGIBILITY_ENABLED` defaults to `true`).
+
+Configuration (see [.env.example](.env.example) and
+[src/config.ts](src/config.ts)):
+
+| Env var | Default | Meaning |
+|---------|---------|---------|
+| `PI_ELIGIBILITY_ENABLED` | `true` | Master switch; disable only for testnet demos |
+| `PI_ELIGIBILITY_ALLOWLIST` | *(empty)* | Comma-separated KYC-approved `G...` addresses; when set, only these may deposit |
+| `PI_ELIGIBILITY_BLOCKLIST` | *(empty)* | Comma-separated `G...` addresses that may never deposit (takes precedence) |
+
 ## Idempotency (two layers)
 
 1. **Contract-level (authoritative)**: `mint_from_deposit(admin, to, amount,
@@ -142,6 +166,7 @@ src/
   pi/
     piClient.ts                 read-only Pi Network interface
     horizonPiClient.ts           Horizon-compatible implementation
+    eligibility.ts               deposit-source eligibility policy (Issue #28)
     depositWatcher.ts            confirmation-depth policy + deposit tracking
     piPayoutClient.ts            Pi release interface
     horizonPiPayoutClient.ts      real implementation (signs + submits a Pi payment)

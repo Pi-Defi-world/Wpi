@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PI_CONFIRMATION_DEPTH, loadConfig } from '../src/config.js';
+import {
+  DEFAULT_ELIGIBILITY_ENABLED,
+  DEFAULT_PI_CONFIRMATION_DEPTH,
+  loadConfig,
+} from '../src/config.js';
 
 function validEnv(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
   return {
@@ -48,5 +52,36 @@ describe('loadConfig', () => {
     expect(loadConfig(validEnv({ DRY_RUN: 'true' })).dryRun).toBe(true);
     expect(loadConfig(validEnv({ DRY_RUN: '1' })).dryRun).toBe(true);
     expect(loadConfig(validEnv({ DRY_RUN: 'false' })).dryRun).toBe(false);
+  });
+
+  it('defaults the eligibility policy to enabled (fail closed)', () => {
+    const config = loadConfig(validEnv());
+    expect(config.pi.eligibilityEnabled).toBe(DEFAULT_ELIGIBILITY_ENABLED);
+    expect(config.pi.eligibilityAllowlist).toEqual([]);
+    expect(config.pi.eligibilityBlocklist).toEqual([]);
+  });
+
+  it('honors PI_ELIGIBILITY_ENABLED=false', () => {
+    const config = loadConfig(validEnv({ PI_ELIGIBILITY_ENABLED: 'false' }));
+    expect(config.pi.eligibilityEnabled).toBe(false);
+  });
+
+  it('parses the KYC allowlist and blocklist as comma-separated lists', () => {
+    const config = loadConfig(
+      validEnv({
+        PI_ELIGIBILITY_ALLOWLIST: ' GABC, GDEF ,',
+        PI_ELIGIBILITY_BLOCKLIST: 'GXXX',
+      }),
+    );
+    expect(config.pi.eligibilityAllowlist).toEqual(['GABC', 'GDEF']);
+    expect(config.pi.eligibilityBlocklist).toEqual(['GXXX']);
+  });
+
+  it('treats an empty allowlist/blocklist as unset', () => {
+    const config = loadConfig(
+      validEnv({ PI_ELIGIBILITY_ALLOWLIST: '', PI_ELIGIBILITY_BLOCKLIST: ' , ' }),
+    );
+    expect(config.pi.eligibilityAllowlist).toEqual([]);
+    expect(config.pi.eligibilityBlocklist).toEqual([]);
   });
 });
