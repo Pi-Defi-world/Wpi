@@ -5,6 +5,9 @@
 
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, token, Address, Env};
 
+const MIN_RATE_BPS: u32 = 1;
+const MAX_RATE_BPS: u32 = 1_000_000;
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
@@ -20,6 +23,7 @@ pub enum Error {
     NotAdmin = 1,
     InsufficientLiquidity = 2,
     SlippageExceeded = 3,
+    InvalidRate = 4,
 }
 
 #[contract]
@@ -33,15 +37,19 @@ impl MockAmm {
         token_in: Address,
         token_out: Address,
         rate_bps: u32,
-    ) {
+    ) -> Result<(), Error> {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
         admin.require_auth();
+        if !(MIN_RATE_BPS..=MAX_RATE_BPS).contains(&rate_bps) {
+            return Err(Error::InvalidRate);
+        }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TokenIn, &token_in);
         env.storage().instance().set(&DataKey::TokenOut, &token_out);
         env.storage().instance().set(&DataKey::Rate, &rate_bps);
+        Ok(())
     }
 
     /// Swap token_in (wPi) for token_out (MockUSDC)
@@ -84,5 +92,45 @@ impl MockAmm {
         let token_out = token::Client::new(&env, &token_out_addr);
         let pool_address = env.current_contract_address();
         token_out.transfer(&from, &pool_address, &amount_out);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+
+    fn setup_client(env: &Env) -> MockAmmClient<'_> {
+        env.mock_all_auths();
+        let contract_id = env.register(MockAmm, ());
+        MockAmmClient::new(env, &contract_id)
+    }
+
+    #[test]
+    fn initialize_rejects_zero_rate() {
+        let env = Env::default();
+        let client = setup_client(&env);
+        let admin = Address::generate(&env);
+        let token_in = Address::generate(&env);
+        let token_out = Address::generate(&env);
+
+        assert_eq!(
+            client.try_initialize(&admin, &token_in, &token_out, &0),
+            Err(Ok(Error::InvalidRate))
+        );
+    }
+
+    #[test]
+    fn initialize_rejects_excessive_rate() {
+        let env = Env::default();
+        let client = setup_client(&env);
+        let admin = Address::generate(&env);
+        let token_in = Address::generate(&env);
+        let token_out = Address::generate(&env);
+
+        assert_eq!(
+            client.try_initialize(&admin, &token_in, &token_out, &(MAX_RATE_BPS + 1)),
+            Err(Ok(Error::InvalidRate))
+        );
     }
 }
