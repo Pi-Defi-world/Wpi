@@ -35,7 +35,7 @@ pub enum Error {
     InsufficientLiquidity = 2,
     SlippageExceeded = 3,
     InvalidRate = 4,
-    MainnetNotSupported = 4,
+    MainnetNotSupported = 5,
 }
 
 #[contract]
@@ -53,17 +53,22 @@ impl MockAmm {
         if env.ledger().network_id() == BytesN::from_array(&env, &MAINNET_NETWORK_ID) {
             return Err(Error::MainnetNotSupported);
         }
+
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
+
         admin.require_auth();
+
         if !(MIN_RATE_BPS..=MAX_RATE_BPS).contains(&rate_bps) {
             return Err(Error::InvalidRate);
         }
+
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TokenIn, &token_in);
         env.storage().instance().set(&DataKey::TokenOut, &token_out);
         env.storage().instance().set(&DataKey::Rate, &rate_bps);
+
         Ok(())
     }
 
@@ -76,8 +81,18 @@ impl MockAmm {
     ) -> Result<i128, Error> {
         to.require_auth();
 
-        let token_in_addr: Address = env.storage().instance().get(&DataKey::TokenIn).unwrap();
-        let token_out_addr: Address = env.storage().instance().get(&DataKey::TokenOut).unwrap();
+        let token_in_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenIn)
+            .unwrap();
+
+        let token_out_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenOut)
+            .unwrap();
+
         let rate: u32 = env.storage().instance().get(&DataKey::Rate).unwrap();
 
         let amount_out = (amount_in * rate as i128) / 1_000_000;
@@ -103,9 +118,16 @@ impl MockAmm {
 
     pub fn deposit_liquidity(env: Env, from: Address, amount_out: i128) {
         from.require_auth();
-        let token_out_addr: Address = env.storage().instance().get(&DataKey::TokenOut).unwrap();
+
+        let token_out_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenOut)
+            .unwrap();
+
         let token_out = token::Client::new(&env, &token_out_addr);
         let pool_address = env.current_contract_address();
+
         token_out.transfer(&from, &pool_address, &amount_out);
     }
 }
@@ -117,6 +139,7 @@ mod test {
 
     fn setup_client(env: &Env) -> MockAmmClient<'_> {
         env.mock_all_auths();
+
         let contract_id = env.register(MockAmm, ());
         MockAmmClient::new(env, &contract_id)
     }
@@ -125,6 +148,7 @@ mod test {
     fn initialize_rejects_zero_rate() {
         let env = Env::default();
         let client = setup_client(&env);
+
         let admin = Address::generate(&env);
         let token_in = Address::generate(&env);
         let token_out = Address::generate(&env);
@@ -139,12 +163,18 @@ mod test {
     fn initialize_rejects_excessive_rate() {
         let env = Env::default();
         let client = setup_client(&env);
+
         let admin = Address::generate(&env);
         let token_in = Address::generate(&env);
         let token_out = Address::generate(&env);
 
         assert_eq!(
-            client.try_initialize(&admin, &token_in, &token_out, &(MAX_RATE_BPS + 1)),
+            client.try_initialize(
+                &admin,
+                &token_in,
+                &token_out,
+                &(MAX_RATE_BPS + 1)
+            ),
             Err(Ok(Error::InvalidRate))
         );
     }
