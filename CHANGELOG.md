@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MintTxCapNotConfigured` until the ceiling is configured ([#19](https://github.com/Pi-Defi-world/Wpi/issues/19)).
 
 ### Docs
+- **DEX integration**: Added `docs/dex-integration.md` establishing a real,
+  reproducible Stellar **testnet** DEX path for `wPi/USDC` against **Soroswap**
+  (constant-product Soroban AMM), with rationale, alternatives evaluated
+  (Aquarius, Phoenix, Comet, classic SDEX), a pool-creation + liquidity-seeding
+  runbook, and price-impact / slippage guidance for the treasury operator. Added
+  `scripts/seed_testnet_liquidity.sh` (testnet-default, mainnet-refused,
+  `--dry-run`, `--amm soroswap|mock`), `scripts/dex.testnet.env.example`, and a
+  `make seed-testnet-liquidity` target. Replaces the previous
+  "DEX pool creation is not included; seed liquidity off-chain" note in
+  `Stellar-contracts-v1/README.md` ([#10](https://github.com/Pi-Defi-world/Wpi/issues/10)).
 - **Compatibility**: Added `COMPATIBILITY.md` documenting the pinned Pi Core /
   Stellar protocol versions the bridge is built and tested against (Pi mainnet
   Protocol 26, Stellar mainnet Protocol 27 "Zipper" at time of writing), how

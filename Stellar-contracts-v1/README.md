@@ -35,4 +35,19 @@ Set backend env:
 
 ## DEX / AMM
 
-Pool creation against Soroswap or another Stellar AMM is **not** included here; seed liquidity off-chain after deploying both tokens.
+The `wPi/USDC` pair integrates against **Soroswap** (Uniswap-v2-style Soroban
+AMM) on Stellar testnet. Pool creation and initial liquidity seeding are scripted
+and reproducible:
+
+```bash
+cp scripts/dex.testnet.env.example scripts/dex.testnet.env   # fill in ids + amounts
+set -a; source scripts/dex.testnet.env; set +a
+scripts/seed_testnet_liquidity.sh --dry-run                  # review the plan
+scripts/seed_testnet_liquidity.sh                            # create + seed the pool
+```
+
+The pair is created implicitly by the first `add_liquidity` call. A local
+`mock-amm` fallback (`--amm mock`) needs no external AMM. Testnet only — the
+script refuses mainnet. AMM choice + rationale, the seeding runbook, and
+price-impact / slippage guidance are in
+[`../docs/dex-integration.md`](../docs/dex-integration.md).
