@@ -30,6 +30,7 @@ pub enum Error {
     Paused = 2,
     InsufficientBalance = 3,
     InsufficientAllowance = 4,
+    InvalidAmount = 5,
 }
 
 /// Topics: `("transfer", from, to)`, data: `amount`.
@@ -255,7 +256,7 @@ impl WpiToken {
         }
         admin.require_auth();
         if amount <= 0 {
-            return Ok(());
+            return Err(Error::InvalidAmount);
         }
         let to_balance = read_balance(&env, &to);
         let total = read_total_supply(&env);
@@ -277,7 +278,7 @@ impl WpiToken {
         }
         admin.require_auth();
         if amount <= 0 {
-            return Ok(());
+            return Err(Error::InvalidAmount);
         }
         let from_balance = read_balance(&env, &from);
         if from_balance < amount {
@@ -317,5 +318,76 @@ impl WpiToken {
 
     pub fn admin(env: Env) -> Address {
         read_admin(&env)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    extern crate std;
+
+    use super::{Error, WpiToken, WpiTokenClient};
+    use soroban_sdk::{testutils::Address as _, Address, Env};
+
+    fn setup() -> (Env, WpiTokenClient<'static>, Address, Address) {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register(WpiToken, ());
+        let client = WpiTokenClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+
+        client.initialize(&admin);
+
+        (env, client, admin, user)
+    }
+
+    #[test]
+    fn test_mint_validations() {
+        let (_env, client, admin, user) = setup();
+
+        // 1. Zero amount mint must fail
+        let result_zero = client.try_mint(&admin, &user, &0);
+        assert_eq!(result_zero, Err(Ok(Error::InvalidAmount)));
+        assert_eq!(client.balance(&user), 0);
+        assert_eq!(client.total_supply(), 0);
+
+        // 2. Negative amount mint must fail
+        let result_neg = client.try_mint(&admin, &user, &-100);
+        assert_eq!(result_neg, Err(Ok(Error::InvalidAmount)));
+        assert_eq!(client.balance(&user), 0);
+        assert_eq!(client.total_supply(), 0);
+
+        // 3. Positive amount mint must succeed
+        let result_pos = client.mint(&admin, &user, &100);
+        assert_eq!(result_pos, ());
+        assert_eq!(client.balance(&user), 100);
+        assert_eq!(client.total_supply(), 100);
+    }
+
+    #[test]
+    fn test_burn_validations() {
+        let (_env, client, admin, user) = setup();
+
+        // Mint some tokens first
+        client.mint(&admin, &user, &100);
+
+        // 1. Zero amount burn must fail
+        let result_zero = client.try_burn(&admin, &user, &0);
+        assert_eq!(result_zero, Err(Ok(Error::InvalidAmount)));
+        assert_eq!(client.balance(&user), 100);
+        assert_eq!(client.total_supply(), 100);
+
+        // 2. Negative amount burn must fail
+        let result_neg = client.try_burn(&admin, &user, &-50);
+        assert_eq!(result_neg, Err(Ok(Error::InvalidAmount)));
+        assert_eq!(client.balance(&user), 100);
+        assert_eq!(client.total_supply(), 100);
+
+        // 3. Positive amount burn must succeed
+        let result_pos = client.burn(&admin, &user, &30);
+        assert_eq!(result_pos, ());
+        assert_eq!(client.balance(&user), 70);
+        assert_eq!(client.total_supply(), 70);
     }
 }
