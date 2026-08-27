@@ -10,6 +10,9 @@
 .env
 .env.*
 !.env.example
+# DEX seeding local config (holds per-network Soroswap contract ids)
+scripts/dex.*.env
+!scripts/dex.*.env.example
 *.pem
 *.key
 *.p8
