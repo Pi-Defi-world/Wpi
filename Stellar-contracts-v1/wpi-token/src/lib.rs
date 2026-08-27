@@ -359,8 +359,7 @@ mod test {
         assert_eq!(client.total_supply(), 0);
 
         // 3. Positive amount mint must succeed
-        let result_pos = client.mint(&admin, &user, &100);
-        assert_eq!(result_pos, ());
+        client.mint(&admin, &user, &100);
         assert_eq!(client.balance(&user), 100);
         assert_eq!(client.total_supply(), 100);
     }
@@ -385,8 +384,7 @@ mod test {
         assert_eq!(client.total_supply(), 100);
 
         // 3. Positive amount burn must succeed
-        let result_pos = client.burn(&admin, &user, &30);
-        assert_eq!(result_pos, ());
+        client.burn(&admin, &user, &30);
         assert_eq!(client.balance(&user), 70);
         assert_eq!(client.total_supply(), 70);
     }
