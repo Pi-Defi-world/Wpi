@@ -7,8 +7,6 @@
 # Cargo.lock
 
 # Environment and secret material
-.env
-.env.*
 !.env.example
 # DEX seeding local config (holds per-network Soroswap contract ids)
 scripts/dex.*.env
@@ -34,9 +32,9 @@ coverage/
 tmp/
 
 # Editor and OS files
-.vscode/
 .idea/
 *.swp
 *.swo
 .DS_Store
 Thumbs.db
+config.bat
